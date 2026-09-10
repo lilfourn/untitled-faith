@@ -1,66 +1,122 @@
 # Untitled Faith
 
-iOS 17+ SwiftUI app for Christian faith questions. Native Sign in with Apple connects to a deployed Cloudflare Worker, which verifies Apple credentials and proxies submitted questions to OpenRouter. OpenRouter web search is restricted to approved Bible and commentary sites; the dedicated Bible corpus is not connected.
+A native iPhone and iPad app for exploring the Bible, asking difficult questions about Christianity, and growing in faith.
 
-## Run
+Untitled Faith combines a SwiftUI interface with Scripture retrieval and AI-assisted explanations. The app takes a Scripture-first approach, identifies differences between Christian traditions, and asks the reader to weigh interpretations against the biblical text.
 
-Use the developer wrapper for repeatable local work:
+## Mission
 
-```sh
-./scripts/dev run          # Build, verify signing, install, and open
-./scripts/dev test         # Signed iOS tests in a separate build folder
-./scripts/dev check        # Backend checks and a deployment dry run
-./scripts/dev doctor       # Tools, dependencies, permissions, simulator state
-./scripts/dev auth-check   # Public backend checks without credentials or inference
-./scripts/dev archive      # Signed device archive with an automatic build number
-./scripts/dev --help
-```
+I created this app to use my skills for the glory of God. After spending so much time building applications, I felt called to build something that serves His kingdom. This has been on my heart for a while, and I want to give my time, my work, and my abilities fully to the Lord.
 
-The wrapper keeps signing enabled, verifies simulator entitlements inside the executable, and never shuts down or erases simulators. iOS commands use a cooperative lock, with logs in `.dev/logs`. Run builds use `DerivedData/DevApp`; tests use `DerivedData/Tests`, avoiding the old shared artifact folder. Set `FAITH_SIMULATOR` to an existing name or UDID to choose a device. Concurrent agents should use the wrapper for iOS commands.
+## Features
 
-Use `./scripts/dev run` to generate, build, verify signing, install, and launch on the simulator. `project.yml` is the project source. The authentication screen contains the wordmark and Apple sign-in button. Use the `--preview-chat` launch argument to open the chat preview in Debug builds; the argument is ignored in Release builds.
+- **Faith conversations:** Ask questions about Scripture, theology, Christian history, and living out your faith, with follow-up questions in the same conversation.
+- **Scripture grounding:** The backend retrieves relevant passages from the bundled Berean Standard Bible and requests verified ESV text from Crossway when configured.
+- **Source-linked explanations:** Read citations and quotation blocks from approved Bible providers, historical writings, and theological references.
+- **Deeper theological study:** Explore subjects such as the Trinity, salvation, predestination, suffering, sacraments, and objections to Christianity.
+- **Personal conversation history:** Reopen or delete conversations saved on your device and separated by account.
+- **Native account access:** Sign in with Apple, view usage, manage your profile, and request account deletion.
 
-See [backend setup](backend/README.md) for secrets, deployment, the short-lived development session, and Xcode configuration. Without configuration, the app reports that answers are unavailable. Send submits questions directly without an AI-sharing popup. AI answers are enabled by default; the existing device preference is still respected. No model picker or model label is present.
+## Scripture and sources
 
-See [Apple sign-in setup](APPLE_SIGNIN.md) for the configured App ID, key, authentication flow, session behavior, and verification steps. Keep simulator signing enabled when testing Keychain.
+Scripture is the app's final authority for spiritual and doctrinal conclusions. Other sources serve as fallible teaching and research aids. The answer instructions distinguish biblical statements, interpretation, a tradition's teaching, and speculation, with uncertainty explained beside the affected claim.
 
-See [TestFlight](docs/TESTFLIGHT.md) for release archives, automatic build numbering, uploads, and installation on a phone.
+The source catalog includes Bible Gateway, YouVersion, ESV.org, BibleProject, GotQuestions, historical Christian texts, denominational confessions, biblical studies, and philosophical references. Consultation does not imply agreement with every source or endorsement of the app by those organizations.
 
-See [Bible text and search](docs/BIBLE.md) for the bundled Berean Standard Bible, ESV quoting through Crossway's API, and offline keyword and semantic search.
+The backend checks quotation wording against retrieved evidence and restricts citation URLs to approved sources. These checks do not verify every claim in generated prose. AI-assisted answers can be mistaken and should support personal study, prayer, and conversation with a local church.
 
-See [accounts and usage](docs/ACCOUNTS.md) for the persistent user database, monthly free limits, personal funding balances, and payment integration status. Settings contains an editable profile photo, a usage-remaining bar with Add usage, and Delete account at the bottom. The photo is saved as a 512-pixel thumbnail in Application Support, scoped to the account and backend. It survives app restarts and sign-in, uses atomic writes and iOS data protection, and is excluded from backups. It is never uploaded. Successful account deletion removes the local photo.
+See the [source catalog and theology policy](docs/THEOLOGY.md), [Bible retrieval documentation](docs/BIBLE.md), and [citation validation rules](docs/WEB_SEARCH.md).
 
-## Structure
+## Project status
 
-- `App`: session routing and shared appearance.
-- `Features/Authentication`: native Sign in with Apple entry screen.
-- `Features/Chat`: conversation state, composer, answer/citation rendering, and the empty-state verse carousel (`HomeVerses` holds 36 ESV quotations).
-- `Features/Settings`: locally saved profile photo selection, usage, and account deletion.
-- `Features/Legal`: bundled draft Privacy Policy and Terms of Use, accessible before sign-in.
-- `Models`: questions, answers, Bible references, and attributed commentary.
-- `Services`: native streaming HTTPS answer client, full conversation context, local session files, consent checks, and sanitized errors.
-- `Services/Bible`: bundled public-domain Bible (SQLite + FTS5), reference parsing and detection, ESV passage client with a capped device cache, and an on-device semantic verse index. See [Bible text and search](docs/BIBLE.md).
-- `backend`: authenticated OpenRouter proxy, request validation, rate limiting, and Workers runtime tests.
-- `Untitled FaithTests`: native client request, privacy, error, and context tests.
+Untitled Faith is in active development, with release history documented in the [TestFlight guide](docs/TESTFLIGHT.md). This repository describes the current source code; the deployed backend may run an earlier revision. See [deployment status](backend/DEPLOYMENT.md) for the published backend version.
 
-Conversations are saved on the device, separated by account, and can be reopened or deleted from history. Each request sends the entire conversation plus the latest question; over-limit requests fail explicitly without trimming history. Chat files are excluded from backups and are not synced to the cloud. See [chat sessions and streaming](docs/CHAT.md). Apple credentials are verified by the backend before the app stores a session in device-only Keychain. Account deletion and Apple authorization revocation are available in Settings. The development preview bypass exists only in Debug; Release builds cannot use its environment token. Web citations and quotation blocks link to approved sources; see [web search](docs/WEB_SEARCH.md).
+The contribution interface is implemented, but payment checkout remains unconfigured. See [contributions](docs/CONTRIBUTIONS.md) for that integration's status.
 
-## Brand exploration
+## Development
 
-The selected app icon is the standalone white glass speech bubble with a centered Latin Christian cross. Its opaque 1024×1024 PNG is installed in `Untitled Faith/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`; iOS applies the rounded icon mask. Earlier dark and flat concepts are exploratory history. Manrope and Space Grotesk remain font options; the scaffold currently uses system sans typography.
+### Requirements
 
-Gridbloom board: **Untitled Faith · Monochrome identity** (`kx7b9g2t8ey0y2d18e4sj6tchh8e3z7g`). Early wordmark concept sheets are saved in `public/` for review only. These generated images are exploratory presentations, not production app-icon exports.
+- macOS with Xcode and an iOS 17 or later simulator.
+- XcodeGen to generate the Xcode project from `project.yml`.
+- Node.js 22.12 or later and npm for the backend.
+- Python 3 for the Bible index tooling.
+- Apple signing configuration and backend credentials for authenticated app use.
 
-## Next integration work
+### Get started
 
-1. Apple sign-in is configured and the first real simulator sign-in was confirmed working by Luke. Validate the complete account lifecycle on a physical device before public launch.
-2. Add retrieval, licensed Bible translations, and an explicitly approved commentary catalog. BibleProject and GotQuestions are approved web commentary sources; this is not an endorsement by those organizations. Ground answers in retrieved passages, validate citations, and abstain when sources cannot support an answer. Model prompting alone does not enforce Bible-only sourcing. The proxy's fixed model and Google provider allowlist are documented in the backend.
-3. Validate the account/usage quota and deletion work before public use. Current access tokens expire within 15 minutes; requests also require an existing account record. Rate limits are approximate and local to each Cloudflare location. The bundled privacy copy covers local conversation persistence.
-4. Before App Store submission, validate the implemented deletion flow with a real account, finalize and publish privacy/terms/support pages, complete privacy disclosures, and add store assets. The bundled legal drafts use `untitledfaith@gmail.com`; replace it when the new address is ready.
-5. Before public launch, verify actual provider retention/training settings and Cloudflare trace metadata, disable optional prompt logging and product-data-use settings where appropriate, and finalize legal disclosures. The user removed the separate AI-sharing popup from the preview; revisit the explicit-permission flow before App Store submission. The proxy requests `data_collection: deny`, which does not replace checking provider terms and account settings. Do not treat Apple sign-in or acceptance of terms as AI-sharing consent.
+1. Clone the repository and install backend dependencies:
 
-## Checks
+   ```sh
+   git clone https://github.com/lilfourn/untitled-faith.git
+   cd untitled-faith
+   npm --prefix backend ci
+   ```
 
-Run `./scripts/dev check` for backend type checks, Workers tests, and a deployment dry run. Run `./scripts/dev test` for signed simulator tests. Tests mock inference and do not spend OpenRouter credits. Use normal signed simulator builds for Keychain/authentication tests.
+2. Follow [backend setup](backend/README.md) and [Sign in with Apple setup](APPLE_SIGNIN.md). For your own installation, configure your Apple team, app identifiers, and backend URL in `project.yml`.
 
-Apple references: [native sign-in button](https://developer.apple.com/documentation/signinwithapple/displaying-sign-in-with-apple-buttons-in-your-app), [account deletion](https://developer.apple.com/support/offering-account-deletion-in-your-app/).
+3. Check your development environment and launch the app:
+
+   ```sh
+   ./scripts/dev doctor
+   ./scripts/dev run
+   ```
+
+Use `project.yml` as the Xcode project source and `./scripts/dev` for routine iOS work. The wrapper coordinates builds with a shared lock, keeps signing enabled, and saves logs under `.dev/logs`. Set `FAITH_SIMULATOR` to an existing simulator name or UDID to choose a device.
+
+Store server secrets in the ignored `backend/.dev.vars` file or Cloudflare secrets. Keep credentials out of Swift files, Xcode project settings, and commits. The native client uses HTTPS; see backend setup for development connectivity.
+
+### Common commands
+
+| Command | Purpose |
+| --- | --- |
+| `./scripts/dev run` | Generate, build, verify signing, install, and launch the app |
+| `./scripts/dev check` | Verify the Bible index, type-check the backend, run Workers tests, and validate a deployment dry run |
+| `./scripts/dev test` | Run signed iOS tests in a separate build folder |
+| `./scripts/dev doctor` | Check tools, dependencies, configuration, and simulator state |
+| `./scripts/dev auth-check` | Check public backend health and invalid-credential rejection |
+| `./scripts/dev archive` | Create a signed release archive and advance the patch version and build number |
+| `./scripts/dev --help` | Show available commands and options |
+
+Backend tests mock inference and do not spend model credits. Live answer requests use the configured provider account. Keep signing enabled for Apple sign-in and Keychain verification.
+
+## Architecture
+
+The SwiftUI client communicates over HTTPS with a Cloudflare Worker. The Worker verifies the app session, reviews the request, retrieves Bible evidence, and requests an answer through OpenRouter. Approved web search uses Exa. The backend validates the response and source metadata before releasing the answer to the client.
+
+| Location | Responsibility |
+| --- | --- |
+| `Untitled Faith/App` | Session routing and shared appearance |
+| `Untitled Faith/Features` | Authentication, chat, settings, contributions, and legal screens |
+| `Untitled Faith/Models` | Conversations and answer metadata |
+| `Untitled Faith/Services` | Networking, authentication, local storage, and Bible access |
+| `Untitled Faith/Resources` | Assets and bundled Bible data |
+| `backend/src` | Authentication, answer generation, retrieval, source validation, and usage accounting |
+| `backend/test` | Workers runtime tests |
+| `Untitled FaithTests` | Native app tests |
+| `scripts` | Development, release, and Bible data tooling |
+| `docs` | Feature documentation, policies, and release records |
+
+## Privacy and data handling
+
+The app stores conversation history on the device, separates it by account, and excludes chat files from backups. Each answer request sends the full conversation to the backend and model provider. Web search queries may include conversation details. The backend does not persist chat history; it maintains account and usage records.
+
+The app stores authentication sessions in device-only Keychain. Profile photos remain on the device. You can manage saved conversations from chat history and control AI answers or request account deletion in Settings.
+
+See [chat storage and transport](docs/CHAT.md), [accounts and usage](docs/ACCOUNTS.md), and [backend data handling](backend/README.md) for implementation details. Bundled legal documents remain drafts pending public-release review.
+
+## Documentation
+
+- [Bible text, retrieval, and translation handling](docs/BIBLE.md)
+- [Theology sources and evidence standards](docs/THEOLOGY.md)
+- [Answer style and passage context](docs/EXPLANATIONS.md)
+- [Topic and safety policy](docs/CONTENT_POLICY.md)
+- [Backend setup](backend/README.md)
+- [Sign in with Apple](APPLE_SIGNIN.md)
+- [TestFlight and release workflow](docs/TESTFLIGHT.md)
+
+## Contributing
+
+Issues and focused pull requests are welcome. Describe the problem, the proposed change, and how you verified it. For changes to theological explanations or source selection, include supporting references and identify relevant differences between traditions.
+
+Read [AGENTS.md](AGENTS.md) before making changes. Run the checks relevant to your work, preserve signing for authentication testing, and keep secrets and personal data out of issues, logs, and commits.
