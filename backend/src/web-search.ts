@@ -25,10 +25,11 @@ export function trustedURL(value: string): URL | undefined {
 export function sourceKind(url: URL): 'scripture' | 'commentary' {
   const host = url.hostname.replace(/^www\./, '');
   // Publishers also host articles/devotionals. Only passage routes are Scripture sources.
-  if (host === 'biblegateway.com' && /^\/(passage|verse)\/?$/i.test(url.pathname)) return 'scripture';
+  if (host === 'biblegateway.com' && (/^\/(passage|verse)\/?$/i.test(url.pathname) ||
+      /^\/verse\/(?:[a-z]{2}\/)?[^/]*\d[^/]*\/?$/i.test(decodeURIComponent(url.pathname)))) return 'scripture';
   if (host === 'bible.com' && /^\/(?:[a-z]{2}\/)?bible\/\d+\//i.test(url.pathname)) return 'scripture';
   // YouVersion also publishes actual passage text on its translation-comparison route.
   if (host === 'bible.com' && /^\/(?:[a-z]{2}\/)?bible\/compare\/[1-3]?[a-z]{2,3}\.\d{1,3}(?:\.\d{1,3}(?:-\d{1,3})?)?\/?$/i.test(url.pathname)) return 'scripture';
-  if (host === 'esv.org' && /^\/(?:song[ +]of[ +](?:solomon|songs)|(?:[1-3][ +]?)?[a-z]+)[ +]?\d/i.test(decodeURIComponent(url.pathname))) return 'scripture';
+  if (host === 'esv.org' && /^\/(?:verses\/)?(?:song[ +]of[ +](?:solomon|songs)|(?:[1-3][ +]?)?[a-z]+\.?)[ +]?\d/i.test(decodeURIComponent(url.pathname))) return 'scripture';
   return 'commentary';
 }

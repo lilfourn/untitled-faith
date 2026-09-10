@@ -61,7 +61,7 @@ export async function generateAnswer(messages: Message[], apiKey: string, userID
     stage = "moderation";
     const result = moderatedAnswer(message.content);
     stage = "sources";
-    return { text: result.text, usage: accounting, ...(result.generated ? sources.finish(result.text) : {}) };
+    return { usage: accounting, ...(result.generated ? sources.resolve(result.text) : { text: result.text }) };
   } catch (error) {
     const failureText = error instanceof Error ? error.message : "";
     const failureKind = /redirect/i.test(failureText) ? "redirect" : /header/i.test(failureText) ? "headers"

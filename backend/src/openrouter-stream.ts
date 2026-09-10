@@ -70,7 +70,7 @@ export async function streamAnswer(messages: Message[], apiKey: string, userID: 
     stage = 'moderation';
     const result = moderatedAnswer(text);
     stage = 'sources';
-    return { text: result.text, usage: accounting, ...(result.generated ? sources.finish(result.text) : {}) };
+    return { usage: accounting, ...(result.generated ? sources.resolve(result.text) : { text: result.text }) };
   } catch (error) {
     console.log(JSON.stringify({ event: 'inference_failed', stage, upstreamStatus,
       sourceFailure: error instanceof SourceValidationError ? error.reason : undefined,

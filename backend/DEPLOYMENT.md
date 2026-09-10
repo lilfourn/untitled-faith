@@ -3,7 +3,38 @@
 Updated September 9, 2026.
 
 
-The monthly-only allowance update is deployed as version `529edd2d-0385-4c3f-bbd8-e7b9c1456931`.
+The source-recovery and output-contract update is deployed as version `6640300e-44b1-4bb3-9301-11cdb3d86aaf`.
+The reported faith question was reproduced through the real answer adapter: HTTP 200 generation failed
+at `stage: sources` with `unverified_link`. The model had cited a retrieved ESV.org `/verses/Heb...` URL
+excluded by the old route classifier. Its excerpt also contained a cross-reference marker inside the
+quotation wording. The captured response replay now retains its explanation and all three quotations,
+using another verified ESV excerpt for the noisy citation.
+
+Both JSON and SSE now repair citation presentation, normalize URL aliases, preserve evidence across
+empty duplicate annotations, and keep the explanation if an individual quote/link is unsupported.
+Final quote metadata is still checked against evidence, with rebuilt UTF-16 positions. The prompt now
+requires an explicit two-field JSON envelope, a self-contained explanation outside quotations, exact
+evidence URLs, and a fixed quotation layout. Faith retrieval includes Hebrews 11:1–6 and Ephesians 2:1–10.
+No client rebuild, migration, credential change, or additional inference retry is required for recovery.
+
+Validation: `./scripts/dev check` passed the Bible index, TypeScript, **268 Workers tests**, and deployment
+dry run (`.dev/logs/backend-tests-20260909-221929-65424.log`). Deployment used `wrangler deploy --keep-vars
+--strict` (`.dev/logs/deploy-source-recovery-final-20260909.log`) and matched the recorded source fingerprint.
+A live request through the deployed authenticated SSE endpoint for “What does it mean to have faith?”
+completed in 7,844 ms with `start`, `delta`, and `done`, two verified quotes, valid quote positions, and
+settled cost of 6,337 micro-USD including acquisition fees. The temporary operator account was removed
+only after confirming settlement. The existing user's allowance was not used for this test.
+
+The connected Wrangler log stream confirmed `answer_sources_recovered` with two repaired quotations,
+zero omitted quotes/links, and `answer_stream_completed` status 200 for request
+`28e07036-13f8-4853-86b7-e56a36fa0ddc`. Historical log retrieval through the MCP connector failed schema
+validation, and the direct historical REST query lacked permission; the reproduction and live tail
+provided the usable diagnostic evidence. Reports: `.dev/faith-source-reproduction.json`,
+`.dev/source-recovered-replay.json`, `.dev/source-recovery-live-final.json`, and
+`.dev/source-recovery-final-log-summary.json`. No iOS tests or simulator UI automation were run.
+
+
+The preceding monthly-only allowance update was deployed as version `529edd2d-0385-4c3f-bbd8-e7b9c1456931`.
 Users can spend all 30 monthly free requests on any day. Migration `0006_monthly_only_allowance.sql`
 was applied to the remote `untitled-faith-users` database before deploying the Worker. It removes only
 the daily predicate from the reservation trigger and retains monthly, shared-pool, funding, concurrency,
@@ -106,7 +137,7 @@ The prior broader evaluation's intermittent citation/provider failures remain a 
 
 Local validation for first-name personalization: `./scripts/dev check` passed the Bible index check, backend type check, 192 tests, and deployment dry run (`.dev/logs/backend-tests-20260909-183747-59296.log`). `./scripts/dev test` passed 41 signed iOS unit tests and 2 UI tests (`.dev/logs/ios-tests-20260909-183754-59471.log`). `./scripts/dev build` passed with Apple sign-in and Keychain identity verified, including the updated privacy text (`.dev/logs/build-Debug-20260909-183918-62738.log`). Apple and inference endpoints were mocked in those tests; no live name capture or paid inference was performed for that local validation. Implementation touches Apple name-scope capture/exchange, account profile validation and migration, account-backed prompts in both answer paths, reservation sizing, tests, and privacy/setup documentation. Remaining client action: install the new signed app and verify Apple given-name capture when Apple provides it.
 
-The `untitled-faith-proxy` Worker is deployed at `https://untitled-faith-proxy.vendors-c0f.workers.dev` in Cloudflare account `c0f96de71bdc54889c1ad27ccc90dfc0` (`vendors@gridbloom.app`). The current monthly-only allowance deployment is version `529edd2d-0385-4c3f-bbd8-e7b9c1456931`. The preceding reliability deployment was `ef1f3f13-2136-4262-9f0a-99ab40e8fde3`. The preceding response-formatting deployment was `98170bc5-0180-4ace-80eb-c4a5d0525b17`. The preceding writing-style deployment was `5bb83ec1-a837-4cb9-9798-1d66e45fd569`. The preceding independent-review deployment was `a78a316f-1a7e-4a8e-b017-c4f29d5867fe`. The preceding ESV-grounding deployment was `a88f23f3-0fa8-4dad-b6c6-b8897e12ffb9`. The preceding moderation deployment was `cd2013c8-f093-48e9-a0f8-f5e95709f55c`. The preceding approved-web-search deployment was `ca6e14d4-a368-430a-bdd2-b51a7780fe14`. The prior streaming deployment was `32ff97f1-0a92-474c-8f03-5ad8fcbfa319`. The preceding account/usage deployment was `8b09e554-6947-42f1-aab4-83ad415eea78`.
+The `untitled-faith-proxy` Worker is deployed at `https://untitled-faith-proxy.vendors-c0f.workers.dev` in Cloudflare account `c0f96de71bdc54889c1ad27ccc90dfc0` (`vendors@gridbloom.app`). The current source-recovery deployment is version `6640300e-44b1-4bb3-9301-11cdb3d86aaf`. The preceding monthly-only allowance deployment was `529edd2d-0385-4c3f-bbd8-e7b9c1456931`. The preceding reliability deployment was `ef1f3f13-2136-4262-9f0a-99ab40e8fde3`. The preceding response-formatting deployment was `98170bc5-0180-4ace-80eb-c4a5d0525b17`. The preceding writing-style deployment was `5bb83ec1-a837-4cb9-9798-1d66e45fd569`. The preceding independent-review deployment was `a78a316f-1a7e-4a8e-b017-c4f29d5867fe`. The preceding ESV-grounding deployment was `a88f23f3-0fa8-4dad-b6c6-b8897e12ffb9`. The preceding moderation deployment was `cd2013c8-f093-48e9-a0f8-f5e95709f55c`. The preceding approved-web-search deployment was `ca6e14d4-a368-430a-bdd2-b51a7780fe14`. The prior streaming deployment was `32ff97f1-0a92-474c-8f03-5ad8fcbfa319`. The preceding account/usage deployment was `8b09e554-6947-42f1-aab4-83ad415eea78`.
 
 Web-search verification: 94 backend tests, 30 signed iOS unit tests, and 2 iOS UI tests passed. A live request through the deployed `/v1/answers` endpoint returned a GotQuestions quotation matched against the retrieved excerpt, its exact source URL, and commentary formatting metadata. Text streamed in four deltas, with first text at 11.755 seconds and completion at 12.408 seconds. The ledger settled 5,083 prompt tokens, 1,352 completion tokens, and 16,756 micro-USD including search and acquisition fees. The temporary developer account was removed after confirming no pending charges. The native quotation layout was rendered and visually checked; the app was rebuilt and installed with signing verified. Search added no secrets or database migrations. See [approved web search](../docs/WEB_SEARCH.md).
 

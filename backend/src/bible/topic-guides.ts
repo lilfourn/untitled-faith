@@ -1,6 +1,7 @@
 // Editorial starting references for common questions, never an exhaustive doctrinal index.
 // Ranking still searches the full corpus. Two anchors leave room for independently ranked passages.
 const GUIDES: { words: string[]; references: string[] }[] = [
+  { words: ['faith', 'believe', 'belief'], references: ['Hebrews 11:1-6', 'Ephesians 2:1-10'] },
   { words: ['anxiety', 'anxious', 'worry', 'worried', 'worries'], references: ['Matthew 6:25-34', 'Philippians 4:4-9'] },
   { words: ['forgive', 'forgiveness', 'forgiving'], references: ['Matthew 6:9-15', 'Colossians 3:12-17'] },
   { words: ['pray', 'prayer', 'praying'], references: ['Matthew 6:5-13', 'Luke 11:1-13'] },

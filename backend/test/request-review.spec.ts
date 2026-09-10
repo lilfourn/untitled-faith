@@ -23,8 +23,8 @@ afterEach(() => vi.unstubAllGlobals());
 
 const interfaith = 'What is the modern day Christians relation with Jewish people today. How should I handle that relationship?';
 const answerText = 'Jesus calls Christians to love their neighbors. Treat Jewish people with respect and kindness.';
-function completion(stream: boolean, withUsage = true) {
-  const content = JSON.stringify({ decision: 'answer', answer: answerText });
+function completion(stream: boolean, withUsage = true, text = answerText) {
+  const content = JSON.stringify({ decision: 'answer', answer: text });
   const usage = withUsage ? { cost: 0.001, prompt_tokens: 20, completion_tokens: 5 } : undefined;
   return stream ? new Response(`data: ${JSON.stringify({ id: 'answer-generation', usage,
     choices: [{ delta: { content }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`) :
@@ -118,6 +118,22 @@ describe.each([false, true])('independent request review (stream=%s)', stream =>
     expect(upstream).toHaveBeenCalledTimes(2);
     expect(upstream.mock.calls.map(call => JSON.parse(call[1]!.body as string).model))
       .toEqual([REVIEW_MODEL, 'google/gemini-3.8-flash']);
+  });
+
+  it('keeps a useful answer when one quotation fails, without another inference or duplicate charge', async () => {
+    const text = 'Faith means trusting God.\n\n> [Scripture] Unsupported invented words.\n[Source](https://example.invalid/verse)\n\nThat trust shapes daily life.';
+    upstream.mockResolvedValueOnce(reviewCompletion()).mockResolvedValueOnce(completion(stream, true, text));
+    const result = await send(stream);
+    expect(result.status).toBe(200);
+    expect(result.wire).toContain('Faith means trusting God.');
+    expect(result.wire).toContain('That trust shapes daily life.');
+    expect(result.wire).not.toContain('Unsupported invented words');
+    expect(result.wire).not.toContain('example.invalid');
+    expect(result.wire).not.toContain('sources_unavailable');
+    if (stream) expect(result.wire).toContain('"type":"done"');
+    expect(upstream).toHaveBeenCalledTimes(2);
+    expect(await env.DB.prepare('SELECT status, cost_micros FROM usage_requests').first())
+      .toEqual({ status: 'settled', cost_micros: 1161 });
   });
 
   it('fails closed for malformed review and settles its known cost', async () => {

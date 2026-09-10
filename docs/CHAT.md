@@ -170,3 +170,28 @@ Version **1.0.4 (9)** tightens the spacing requested after 1.0.3: history and co
 item, a zero-spacing HStack, and plain button styling. The SF Symbols use semantic body size inside
 44×44 hit regions. Signed Release archive and TestFlight upload passed; phone appearance and Apple
 processing were not verified. See [release details](TESTFLIGHT.md#compact-toolbar-update-104).
+
+
+## Source recovery and output contract
+
+The user requested more robust source handling after a source-verification error on a basic faith
+question, plus stricter model output instructions. The real adapter reproduced `unverified_link` on an
+ESV.org `/verses/` link returned by search; the supplied excerpt also had footnote noise. The source
+recovery layer now repairs formatting, URL aliases, and verified excerpt selection before final quote
+validation. It drops only unsupported quote blocks or link targets, retaining the explanation and valid
+citations. Commentary is shortened to its cumulative source budget; Scripture has no separate word cap.
+Source aliases share one identity/budget, empty annotations do not erase evidence, and quote offsets are
+rebuilt after all edits. Wholly unusable output or invalid moderation envelopes can still fail explicitly.
+
+The prompt requires one JSON object with only `decision` and `answer`, properly escaped strings, a
+self-contained explanation outside quotes, the exact provided source URLs, and a stable two-line
+quotation/citation layout. Retrieval now supplies Hebrews 11:1–6 and Ephesians 2:1–10 for faith questions.
+Recovery uses no extra model request and keeps the existing accounting, monthly allowance, and client
+contract. It is compatible with the installed TestFlight 1.0.4 app.
+
+All **268 backend tests**, type checks, Bible index, and deployment dry run passed. The original captured
+response replays with all three quotations preserved. The final deployed SSE check returned a complete
+answer with two verified quotations in 7.8 seconds; production logs confirmed successful recovery and
+status 200. The temporary verification account settled and was removed. See the current
+[deployment record](../backend/DEPLOYMENT.md) for version, logs, and costs. No iOS test suite or simulator
+UI automation was run for this backend-only update.
