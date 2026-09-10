@@ -1,9 +1,22 @@
 # Stripe payments and developer accounting
 
-Updated September 10, 2026. **Implemented in the local checkout; production purchases remain disabled.**
+Updated September 10, 2026. **Live Standard Checkout and Apple Pay are enabled for the U.S. storefront.**
 Luke chose Stripe Checkout with Apple Pay, custom $1–$1,000 amounts, immediate estimated credit followed
 by fee reconciliation, and a **separate Untitled Faith Stripe account**. Do not use Gridbloom’s account,
-credentials, webhook configuration, or payout settings. No real purchase has been performed for this integration.
+credentials, webhook configuration, or payout settings. A real Stripe sandbox payment and partial/full refunds passed; no live payment was collected during verification.
+
+## Current deployment
+
+- Live Stripe account: `acct_1UE9yV4dOZG5zTuC` (**untitled faith**). Charges and payouts are enabled; USD settlement, Apple Pay, and cards are available and switched on.
+- Live Worker: `untitled-faith-proxy`, version `0f893638-1ca3-4808-bfa7-655ce3e660e8`.
+- Live webhook: `we_1UEAin4dOZG5zTuCS39GYex3`, with the event set in `backend/src/payments/events.ts`.
+- Sandbox Stripe account: `acct_1UE9ya8xsUtifsc8` (**untitled faith sandbox**).
+- Sandbox Worker: `untitled-faith-payments-sandbox`, version `204926b8-f6e6-482f-a6f2-90006096573c`; its isolated database is `d8c7f293-9e82-4df9-9126-d85a323657a0`.
+- Sandbox webhook: `we_1UEAKv8xsUtifsc8XH7SlDcc`. Its deployment is payment-only and has no inference endpoint or production session credential.
+
+Server secrets are in protected `.dev/stripe-live/.dev.vars` and `.dev/stripe-sandbox/.dev.vars`, and in the corresponding Worker secret bindings. The live server uses the existing standard live API key revealed from the account’s Dashboard, not the CLI credential. The CLI is logged in under project `untitled-faith`; its separate authorization expires December 9, 2026. Neither server secret was printed or embedded in the client.
+
+The owner overview is assigned to Luke’s existing production app account by its explicit UUID. The latest TestFlight client, **1.0.6 (11)**, already includes the dynamic payment entry and overview; reopen Settings to refresh availability. No new app archive was needed for activation.
 
 ## Purchase flow
 
@@ -19,7 +32,7 @@ Checkout Session from the authenticated backend, then opens only an HTTPS `check
 in the external browser. Stripe-hosted Checkout displays Apple Pay on supported devices and card entry
 otherwise. No native Apple Pay merchant certificate or card-processing SDK is embedded in the app.
 
-The server validates integer cents, the share, and a retry key; stores an immutable checkout intent; and
+The server explicitly sends `managed_payments[enabled]=false` and `adaptive_pricing[enabled]=false`, as Luke selected Standard Checkout over the account’s Managed Payments default. Tax handling remains with the business. The server validates integer cents, the share, and a retry key; stores an immutable checkout intent; and
 creates a one-time card Checkout Session. Only the opaque intent ID and app name go into Stripe metadata.
 User IDs, Apple credentials, and chat data are not sent to Stripe. The buyer supplies payment information
 directly to Stripe. Sessions expire after 24 hours. Retrying the same selection/key returns the same
@@ -81,11 +94,9 @@ allocations, and pending reconciliation counts. The API also supplies the latest
 buyer identities. Stripe deposits combined proceeds into the merchant’s bank account; these ledgers
 separate the allocations but do not initiate bank transfers or automate developer withdrawals.
 
-## Activation steps
+## Setup and reconfiguration procedure
 
-The account choice is settled: create a separate **Untitled Faith** merchant account under Luke’s Stripe
-login. Luke must complete the account’s business verification, terms, and payout details. The signed-in
-account inspected during implementation was Gridbloom; it has not been modified for these payments.
+The separate **Untitled Faith** account is created and active. The following procedure documents how to reproduce or update the setup; it is not a list of outstanding activation blockers. Gridbloom was not modified for these payments.
 
 1. Finish the Untitled Faith Stripe account setup and confirm USD settlement and payment/payout eligibility.
 2. Put its API credential in protected `backend/.dev.vars` as `STRIPE_SECRET_KEY`. A restricted key may
@@ -94,7 +105,7 @@ account inspected during implementation was Gridbloom; it has not been modified 
 3. Preview the webhook operation with `node backend/scripts/configure-payment-webhook.mjs --account=acct_...`.
    After verifying the expected account, run from `backend` with
    `node --env-file=.dev.vars scripts/configure-payment-webhook.mjs --account=acct_... --apply`.
-   It creates only this app’s webhook and saves its signing secret to the protected local file; it does
+   Add `--secrets-file=/absolute/path/to/.dev.vars` when using a separate protected environment file. It creates only this app’s webhook and saves its signing secret to the protected local file; it does
    not charge anyone or deploy. An existing webhook/secret is not rotated or overwritten.
 4. Set `PAYMENT_OWNER_ACCOUNT_ID` to the verified app account UUID. Confirm the mode, origin, owner ID,
    credential, webhook secret, and database all refer to the intended environment. The current production
@@ -121,10 +132,25 @@ rechecks completed payments to recover missed refund/dispute notifications.
 
 ## Verification
 
-The payment-focused Workers tests verify sealed selections, deduplication, concurrent fulfillment,
-estimated-to-confirmed fees, partial/full refunds, disputed funds, negative refunded balances,
-unpaid checkouts, account/mode/currency mismatches, stale revisions, real webhook HMACs, replay-window
-rejection, durable retries, background processing, and owner authorization. A signed iOS build has
-passed. Production account configuration, real Stripe test checkout, Apple Pay presentation, webhook
-delivery from Stripe, and post-deployment verification remain outstanding. Latest exact check results
-and deployment state are recorded in `backend/DEPLOYMENT.md`.
+`./scripts/dev check` passed the Bible index, TypeScript, **376 Workers tests**, two recovery-script tests,
+and a deployment dry run. After explicitly disabling adaptive currency pricing, TypeScript and all 34 focused payment/sandbox tests passed again, followed by another dry run. The frozen production source matched the checked files before deployment.
+Payment-specific coverage includes 30 accounting/checkout tests plus four isolation tests. The signed
+client build previously passed; this activation changed backend configuration and the Checkout request.
+
+A $10 sandbox card purchase with 3% developer thanks completed through the hosted Checkout page, where
+Apple Pay was visibly offered. Authentic Stripe webhooks recorded $9.11 in usage funding, $0.30 in
+developer share, and $0.59 in confirmed fees. A $5 refund changed these allocations to $4.26 and $0.15;
+the remaining $5 refund returned both allocations to zero. The verification used the owner summary API
+without client-side synchronization, so the updates demonstrate real webhook delivery and processing.
+The failed initial Managed Payments attempt was closed after verifying Stripe had created no session.
+
+Production health returned 200; unauthenticated payment configuration returned 401; the authenticated
+owner received `enabled=true`, `isOwner=true`, and `mode=live`. A $1 live Checkout Session was created,
+verified as unpaid/live/Standard Checkout, then expired through Stripe without collecting payment. Its
+real expiry webhook closed the pending checkout. Final production payment and developer balances stayed
+zero, with zero pending events and checkouts. Apple Pay and cards were confirmed `available=true` and
+`display_preference.value=on` in the live account’s default payment-method configuration.
+
+No real Apple Pay authorization or live charge on Luke’s phone was performed. No simulator UI automation
+or iOS test suite was run for this task. Verification evidence is under `.dev/stripe-sandbox/` and
+`.dev/stripe-live/`; exact release logs and source references are in `backend/DEPLOYMENT.md`.

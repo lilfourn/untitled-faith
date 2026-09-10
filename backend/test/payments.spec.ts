@@ -99,6 +99,8 @@ describe('Stripe checkout boundary', () => {
     expect(createCalls).toBe(1);
     expect(lastCreateBody.get('line_items[0][price_data][unit_amount]')).toBe('1234');
     expect(lastCreateBody.get('payment_method_types[0]')).toBe('card');
+    expect(lastCreateBody.get('managed_payments[enabled]')).toBe('false');
+    expect(lastCreateBody.get('adaptive_pricing[enabled]')).toBe('false');
     expect(lastCreateBody.get('payment_intent_data[metadata][intent_id]')).toBe(first.intentID);
     expect(await balance()).toBe(0);
     await expect(createCheckout(paymentEnv, intent.user_id!, key, { ...input, amountCents: 1300 }))

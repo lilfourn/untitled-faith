@@ -31,7 +31,7 @@ See the [source catalog and theology policy](docs/THEOLOGY.md), [Bible retrieval
 
 Untitled Faith is in active development, with release history documented in the [TestFlight guide](docs/TESTFLIGHT.md). This repository describes the current source code; the deployed backend may run an earlier revision. See [deployment status](backend/DEPLOYMENT.md) for the published backend version.
 
-Stripe Checkout with Apple Pay and separate usage/developer accounting are implemented locally. Production purchases remain disabled pending the separate Untitled Faith Stripe account setup and end-to-end validation. See [payments](docs/PAYMENTS.md) for activation status.
+Stripe Checkout with Apple Pay is enabled for U.S. storefront users, with separate usage funding and developer-share accounting. Sandbox purchases/refunds and live checkout creation have been verified; a real Apple Pay charge on-device remains untested. See [payments](docs/PAYMENTS.md) for activation status.
 
 ## Development
 

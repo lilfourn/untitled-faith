@@ -1,6 +1,6 @@
 # Contribution wizard
 
-The entry point is **Settings → Add usage**, available when Stripe checkout is enabled for the U.S. storefront, and in the Debug chat preview. Production purchases remain disabled pending the separate Untitled Faith Stripe account setup. This is a two-step native SwiftUI flow.
+The entry point is **Settings → Add usage**, available when Stripe checkout is enabled for the U.S. storefront, and in the Debug chat preview. Live Standard Checkout with Apple Pay is enabled on the separate Untitled Faith Stripe account; see [payment verification](PAYMENTS.md#verification). This is a two-step native SwiftUI flow.
 
 1. Enter a USD contribution with a numeric keypad. Digits roll upward with `numericText` transitions; key presses have a small spring response and selection haptics. The input accepts $1–$1,000 with up to two decimal places.
 2. Optionally allocate 0–3% to the developer using a slider in 0.1% steps. It starts at 0%. The bottom amount shows the developer's share. Returning to step one preserves the selected percentage and recalculates the split if the amount changes.

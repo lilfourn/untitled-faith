@@ -2,9 +2,51 @@
 
 Updated September 10, 2026.
 
+## Live Stripe activation — September 10
+
+Worker version **`0f893638-1ca3-4808-bfa7-655ce3e660e8`** enables live Standard Checkout and the owner
+payment overview. It preserves the preceding reliability release `834cb8e4-f263-48aa-9fea-88f6c3469030`.
+The final USD-only source snapshot is `.dev/stripe-live/release-usd`, based on commit `18a6bb8` plus the payment request,
+configuration, generated-type, and regression-test updates. Both Managed Payments and adaptive currency pricing are explicitly disabled on these Checkout Sessions, preserving the selected USD amount. Source fingerprints are in
+`.dev/stripe-live/release-usd-source.json`; they matched the checked source before publishing. The initial activation was version `550b3b51-108f-4f6d-b829-d27a9e512a1a`.
+
+Luke explicitly selected Standard Checkout (`managed_payments.enabled=false`), keeping the lower-fee
+payment design and business-managed tax handling. The new live account is `acct_1UE9yV4dOZG5zTuC`,
+**untitled faith**, with charges and payouts enabled and no outstanding requirements reported. Apple Pay
+and cards are available and switched on in its default payment-method configuration. The live webhook is
+`we_1UEAin4dOZG5zTuCS39GYex3`. Its signing secret and the account’s existing standard live API key were
+provisioned with `--secrets-file`, preserving other remote secrets and variables with `--keep-vars --strict`.
+The server does not use the temporary CLI key. Owner access is assigned to the existing app account UUID
+in the configuration. The production database was already migrated through 0008; its live-mode marker
+and the `dispute_open` column were confirmed before deployment. No new production migration was needed.
+
+Checks: `./scripts/dev check` passed the Bible index, TypeScript, **376 Workers tests**, two recovery-script
+tests, and dry run. Logs: `.dev/logs/backend-tests-20260910-112513-28504.log`,
+`.dev/logs/recovery-script-tests-20260910-112538-28504.log`, and
+`.dev/logs/backend-bundle-20260910-112538-28504.log`. Deployment log:
+`.dev/logs/stripe-live-deploy-20260910.log`. The final currency setting passed TypeScript, all 34 focused payment/sandbox tests (`.dev/logs/stripe-usd-checkout-tests.log`), and another dry run before deploying (`.dev/logs/stripe-live-usd-deploy-20260910.log`). The live verification was repeated with adaptive pricing confirmed disabled.
+
+A real $10 sandbox Checkout payment and authentic webhooks confirmed $9.11 usage, $0.30 developer share,
+and $0.59 fees. Partial and full refunds correctly adjusted both allocations. Sandbox resources are
+isolated: Worker `untitled-faith-payments-sandbox` version `204926b8-f6e6-482f-a6f2-90006096573c`, D1
+`d8c7f293-9e82-4df9-9126-d85a323657a0`, Stripe account `acct_1UE9ya8xsUtifsc8`. Test secrets and session
+signing credentials were never installed into production. This Worker has no inference endpoint.
+
+Post-deployment production checks: health 200; unauthenticated configuration 401; owner configuration
+reported enabled/live/owner. A $1 live Checkout Session was created and verified as unpaid, then expired
+without collecting payment. Stripe’s actual expiry webhook closed it. Final payment totals stayed zero,
+with zero pending checkouts/events. Reports: `.dev/stripe-live/checkout-verification.json`,
+`.dev/stripe-live/final-verification.json`, `.dev/stripe-live/payment-method-verification.json`,
+`.dev/stripe-sandbox/paid-summary.json`, and `.dev/stripe-sandbox/refund-results.json`.
+
+The existing TestFlight **1.0.6 (11)** client includes the payment screens, so no new archive was required.
+No real Apple Pay authorization or live charge was performed, and no iOS tests or simulator UI automation
+were run by this task. See [payment setup and verification](../docs/PAYMENTS.md).
+
+
 ## Reliability release 1.0.6 — deployed September 10
 
-Worker version `834cb8e4-f263-48aa-9fea-88f6c3469030` is serving 100% of traffic,
+Worker version `834cb8e4-f263-48aa-9fea-88f6c3469030` served 100% of traffic before the Stripe activation above,
 from source commit `d34ae208b2033f9213882e24c089c03e0aa288b0`. Deployment used a
 frozen source snapshot (`.dev/release-1.0.6-11`) after detecting concurrent payment
 edits during initial validation. Later working-directory changes were preserved.
