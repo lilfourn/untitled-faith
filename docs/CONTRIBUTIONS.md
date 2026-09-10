@@ -1,0 +1,22 @@
+# Contribution wizard
+
+The entry point is **Settings → Add usage**, available in the signed-in app and in the Debug chat preview. This is a two-step native SwiftUI flow.
+
+1. Enter a USD contribution with a numeric keypad. Digits roll upward with `numericText` transitions; key presses have a small spring response and selection haptics. The input accepts $1–$1,000 with up to two decimal places.
+2. Optionally allocate 0–3% to the developer using a slider in 0.1% steps. It starts at 0%. The bottom amount shows the developer's share. Returning to step one preserves the selected percentage and recalculates the split if the amount changes.
+
+The user explicitly chose to take developer thanks **out of the contribution**, keeping the total unchanged. Amounts round to the nearest cent using integer arithmetic. At $10 and 3%, the total is $10 and developer thanks is $0.30. The remainder becomes usage funding after payment fees.
+
+The final design is deliberately minimal. It has no top progress bar or header title. Step one shows “How much?”, the amount, keypad, and Next. Step two shows “Share your thanks?”, the percentage slider, developer share, and the fixed total in the Continue button. Supporting paragraphs, badges, currency captions, and the decorative summary card were removed. Controls retain accessible touch targets; number and step animations respect Reduce Motion. Colors adapt to light and dark appearance.
+
+The thanks screen includes Luke's personal note behind a collapsed “Read developer’s note” button. It expands inline in italic text, slightly dimmed to identify it as his direct quote, and can be collapsed again. Only grammar, spelling, and punctuation were corrected; the content and attribution remain intact. Reading or hiding the note does not change the chosen percentage or contribution total.
+
+`ContributionSelection` passes the original amount and selected share in basis points to the checkout boundary. `UnconfiguredContributionCheckout` explicitly reports that payment is unavailable; it neither charges nor credits the account. Checkout remains a separate integration. An Apple IAP adapter must map contributions to real App Store products and verify receipts; arbitrary entered amounts do not create arbitrary StoreKit prices. A payment adapter must carry the authorized share through its server-side purchase intent and derive all amounts from verified payment data.
+
+The backend independently validates 0–300 basis points, calculates the cent-rounded split, and records usage funding and developer thanks separately. Migration `0003_optional_developer_share.sql` preserves old zero-share behavior and reverses both allocations on refund. A duplicate transaction cannot change its selected split.
+
+Validation covers amount entry, decimal precision, backspace and bounds, unchanged totals, cent rounding, duplicate/refunded payments, and a full native UI test in light and dark appearances. UI tests capture both steps and assert that continuing while checkout is unavailable does not show a successful payment.
+
+Run `./scripts/dev test` for signed simulator validation and `./scripts/dev check` for backend checks. The Debug-only launch argument `--contribution-preview-dark` previews this modal in dark appearance without changing the simulator's system setting.
+
+Verified September 9, 2026: 73 backend tests, 26 iOS unit tests, and two native UI tests passed. Migration 0003 is applied locally and in Cloudflare. Screenshots: [amount](previews/contribution-amount-minimal.png), [developer thanks](previews/developer-thanks-minimal.png), [dark appearance](previews/developer-thanks-minimal-dark.png).

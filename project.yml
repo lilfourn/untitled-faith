@@ -1,0 +1,78 @@
+name: Untitled Faith
+options:
+  bundleIdPrefix: com.lukefournier
+packages:
+  MarkdownUI:
+    url: https://github.com/gonzalezreal/swift-markdown-ui
+    exactVersion: 2.4.1
+targets:
+  Untitled Faith:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - Untitled Faith
+    dependencies:
+      - package: MarkdownUI
+    attributes:
+      SystemCapabilities:
+        com.apple.SignInWithApple:
+          enabled: 1
+    info:
+      path: Configuration/Info.plist
+      properties:
+        AnswerProxyURL: "$(ANSWER_PROXY_URL)"
+        APIBaseURL: "$(FAITH_API_BASE_URL)"
+    entitlements:
+      path: Untitled Faith/UntitledFaith.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lukefournier.UntitledFaith
+        DEVELOPMENT_TEAM: BZT8F2M765
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_KEY_CFBundleDisplayName: Untitled Faith
+        ANSWER_PROXY_URL: "$(FAITH_API_BASE_URL)/v1/answers"
+        FAITH_API_BASE_URL: "https://untitled-faith-proxy.vendors-c0f.workers.dev"
+  Untitled FaithTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - Untitled FaithTests
+    dependencies:
+      - target: Untitled Faith
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+  Untitled FaithUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - Untitled FaithUITests
+    dependencies:
+      - target: Untitled Faith
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+schemes:
+  Untitled Faith:
+    build:
+      targets:
+        Untitled Faith: all
+    test:
+      targets:
+        - Untitled FaithTests
+        - Untitled FaithUITests

@@ -1,0 +1,14 @@
+.DS_Store
+DerivedData/
+DerivedDataSigning/
+build/
+xcuserdata/
+*.xcuserstate
+node_modules/
+.wrangler/
+.dev.vars*
+!.dev.vars.example
+.env*
+*.local.xcconfig
+*.p8
+.dev/

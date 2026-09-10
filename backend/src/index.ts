@@ -1,0 +1,76 @@
+import { reviewedAnswer } from './request-review';
+import { authenticate } from "./auth";
+import { handleAppleAuth } from "./apple-auth";
+import { MAX_REQUEST_BYTES, parseAnswerRequest } from "./contract";
+import { APIError, jsonResponse, readJSON } from "./http";
+import { generateAnswer, InferenceError } from "./openrouter";
+import { requireAccount } from "./accounts";
+import { reservationMicros } from "./billing-policy";
+import { holdUncertainUsage, releaseUsage, reserveUsage, settleUsage, usageSummary } from "./usage";
+import { reconcileUsage } from "./reconcile-usage";
+import { answerStream } from "./answer-stream";
+import { handlePassages, PassageEnv } from "./esv";
+import { prepareBible } from "./bible/prepare";
+
+export default {
+  async scheduled(_controller, env): Promise<void> {
+    await reconcileUsage(env.DB, env.OPENROUTER_API_KEY);
+  },
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
+    const requestID = crypto.randomUUID();
+    const started = Date.now();
+    let status = 200;
+    try {
+      const url = new URL(request.url);
+      if (url.pathname === "/health" && request.method === "GET") return jsonResponse({ status: "ok" });
+      if (url.pathname.startsWith("/v1/auth/")) return await handleAppleAuth(request, env);
+      if (url.pathname === "/v1/me/usage" && request.method === "GET") {
+        const userID = await authenticate(request, env.SESSION_SIGNING_KEY);
+        return jsonResponse(await usageSummary(env.DB, userID));
+      }
+      if (url.pathname === "/v1/passages" && request.method === "GET") return await handlePassages(request, env as PassageEnv);
+      if (url.pathname !== "/v1/answers") throw new APIError(404, "not_found");
+      if (request.method !== "POST") throw new APIError(405, "method_not_allowed");
+      if (!env.OPENROUTER_API_KEY?.trim() || !env.SESSION_SIGNING_KEY || env.SESSION_SIGNING_KEY.length < 32) {
+        throw new APIError(503, "not_configured");
+      }
+      const userID = await authenticate(request, env.SESSION_SIGNING_KEY);
+      const account = await requireAccount(env.DB, userID);
+      if (!(await env.ANSWERS_RATE_LIMITER.limit({ key: `answers:${userID}` })).success) {
+        throw new APIError(429, "rate_limited");
+      }
+      if (request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
+        throw new APIError(415, "invalid_request");
+      }
+      const messages = parseAnswerRequest(await readJSON(request.body, MAX_REQUEST_BYTES));
+      const idempotencyKey = request.headers.get("Idempotency-Key");
+      if (!idempotencyKey || !/^[a-zA-Z0-9_-]{16,128}$/.test(idempotencyKey)) throw new APIError(400, "idempotency_key_required");
+      const bibleContext = await prepareBible(messages, env as PassageEnv, userID, request.signal);
+      const reservation = await reserveUsage(env.DB, userID, idempotencyKey, reservationMicros(messages, account.first_name, bibleContext));
+      if (request.headers.get("Accept")?.split(",").some(value => value.trim() === "text/event-stream")) {
+        return answerStream(request, env, messages, userID, reservation.id, requestID, ctx, account.first_name, bibleContext);
+      }
+      const signal = AbortSignal.any([request.signal, AbortSignal.timeout(45000)]);
+      let result;
+      try {
+        result = await reviewedAnswer(env.DB, reservation.id, messages, env.OPENROUTER_API_KEY, userID, signal,
+          () => generateAnswer(messages, env.OPENROUTER_API_KEY, userID, signal, account.first_name, bibleContext, true));
+      } catch (error) {
+        if (error instanceof InferenceError && error.accounting === "unbilled") await releaseUsage(env.DB, reservation.id);
+        else if (error instanceof InferenceError && typeof error.accounting === "object") await settleUsage(env.DB, reservation.id, error.accounting);
+        else await holdUncertainUsage(env.DB, reservation.id, error instanceof InferenceError ? error.generationID : undefined);
+        throw error;
+      }
+      await settleUsage(env.DB, reservation.id, result.usage);
+      // Checked source quotations share the existing app response contract.
+      return jsonResponse({ answer: { text: result.text, scripture: [], commentary: [],
+            ...(result.sources ? { sources: result.sources, quotes: result.quotes } : {}) }, requestID });
+    } catch (error) {
+      const failure = error instanceof APIError ? error : new APIError(500, "internal_error");
+      status = failure.status;
+      return jsonResponse({ error: { code: failure.code }, requestID }, status);
+    } finally {
+      console.log(JSON.stringify({ event: "request_completed", requestID, status, durationMS: Date.now() - started }));
+    }
+  },
+} satisfies ExportedHandler<Env>;

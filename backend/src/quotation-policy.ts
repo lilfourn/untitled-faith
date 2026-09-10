@@ -1,0 +1,1 @@
+export const MAX_COMMENTARY_QUOTE_WORDS = 25;

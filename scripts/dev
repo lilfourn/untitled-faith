@@ -1,0 +1,179 @@
+#!/bin/bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+STATE="${FAITH_DEV_STATE_DIR:-$ROOT/.dev}"
+ACTION="${1:-help}"
+if [ "$#" -gt 0 ]; then shift; fi
+SCHEME="Untitled Faith"
+BUNDLE="com.lukefournier.UntitledFaith"
+SELECTOR="${FAITH_SIMULATOR:-iPhone 17}"
+LOCK="$STATE/ios.lock"
+HAS_LOCK=0
+
+help() {
+  cat <<'HELP'
+Usage: ./scripts/dev <command>
+
+  doctor             Check local tools, dependencies, secret-file permissions, and simulators
+  build [Debug|Release] Build a signed simulator app without booting a device
+  run                Build, verify entitlements, install, and open the app
+  preview            Open the Debug chat preview (no authentication bypass for real API calls)
+  test               Run signed iOS tests using a separate build folder
+  check              Type-check and test the backend, then check its deployment bundle
+  backend            Start the local backend development server
+  verify [app-path]  Verify an app's actual Apple sign-in/Keychain entitlements
+  auth-check         Check the built app's backend health and invalid-credential rejection
+
+Options are environment variables:
+  FAITH_SIMULATOR     Existing simulator name or UDID (default: iPhone 17)
+  FAITH_API_BASE_URL  Optional public backend URL override for this build
+  FAITH_VERBOSE=1    Stream build logs; full logs are always saved in .dev/logs
+
+This script never shuts down or erases simulators, uninstalls apps, or rotates secrets.
+Signing stays enabled. iOS commands share a cooperative lock to avoid build collisions.
+HELP
+}
+
+cleanup() {
+  if [ "$HAS_LOCK" -eq 1 ]; then
+    rm -f "$LOCK/pid" "$LOCK/action"
+    rmdir "$LOCK" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+need() {
+  command -v "$1" >/dev/null 2>&1 || { echo "Missing tool: $1" >&2; exit 1; }
+}
+
+lock_ios() {
+  mkdir -p "$STATE"
+  if ! mkdir "$LOCK" 2>/dev/null; then
+    [ ! -L "$LOCK" ] || { echo "Refusing a symlinked build lock." >&2; exit 1; }
+    local owner=""
+    if [ -f "$LOCK/pid" ]; then owner="$(cat "$LOCK/pid")"; fi
+    if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
+      rm -f "$LOCK/pid" "$LOCK/action"
+      rmdir "$LOCK" || { echo "Cannot safely clear stale build lock." >&2; exit 1; }
+      mkdir "$LOCK" || { echo "Another iOS command acquired the lock; retry shortly." >&2; exit 1; }
+    else
+      echo "Another iOS command is running (PID ${owner:-initializing}). Retry after it finishes; no process was stopped." >&2
+      exit 1
+    fi
+  fi
+  HAS_LOCK=1
+  echo "$$" > "$LOCK/pid"
+  echo "$ACTION" > "$LOCK/action"
+}
+
+logged() {
+  local label="$1"
+  shift
+  mkdir -p "$STATE/logs"
+  local log="$STATE/logs/${label}-$(date +%Y%m%d-%H%M%S)-$$.log"
+  echo "$label — log: $log"
+  if [ "${FAITH_VERBOSE:-0}" = 1 ]; then
+    "$@" 2>&1 | tee "$log"
+  elif ! "$@" > "$log" 2>&1; then
+    tail -n 70 "$log" >&2
+    return 1
+  fi
+}
+
+generate() {
+  need xcodegen
+  need xcodebuild
+  need python3
+  (cd "$ROOT" && xcodegen generate)
+}
+
+build_app() {
+  local configuration="$1"
+  case "$configuration" in Debug|Release) ;; *) echo "Configuration must be Debug or Release." >&2; exit 1;; esac
+  local overrides=("CODE_SIGNING_ALLOWED=YES" "CODE_SIGNING_REQUIRED=YES")
+  if [ -n "${FAITH_API_BASE_URL:-}" ]; then overrides+=("FAITH_API_BASE_URL=$FAITH_API_BASE_URL"); fi
+  logged "build-$configuration" xcodebuild -project "$ROOT/Untitled Faith.xcodeproj" -scheme "$SCHEME" \
+    -configuration "$configuration" -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+    -derivedDataPath "$ROOT/DerivedData/DevApp" \
+    "${overrides[@]}" build
+  python3 "$ROOT/scripts/verify-signing.py" "$ROOT/DerivedData/DevApp/Build/Products/$configuration-iphonesimulator/$SCHEME.app"
+}
+
+boot_simulator() {
+  local device="$1"
+  if [ "$(python3 "$ROOT/scripts/simulator.py" "$device" --state)" != "Booted" ]; then
+    xcrun simctl boot "$device"
+  fi
+  xcrun simctl bootstatus "$device" -b
+}
+
+case "$ACTION" in
+  help|--help|-h) help ;;
+  doctor)
+    for tool in xcodebuild xcrun xcodegen node npm python3 codesign; do
+      if command -v "$tool" >/dev/null 2>&1; then echo "$tool: $(command -v "$tool")"; else echo "$tool: MISSING"; fi
+    done
+    xcode-select -p
+    if [ -d "$ROOT/backend/node_modules" ]; then echo "Backend dependencies: installed"; else echo "Backend dependencies: missing (run npm ci in backend)"; fi
+    if [ -f "$ROOT/backend/.dev.vars" ]; then
+      python3 -c 'import os,stat,sys; mode=stat.S_IMODE(os.stat(sys.argv[1]).st_mode); print("Local secret file: present, permissions " + oct(mode) + (" (expected 0600)" if mode != 0o600 else ""))' "$ROOT/backend/.dev.vars"
+    else echo "Local secret file: missing (see backend/.dev.vars.example)"; fi
+    xcrun simctl list devices booted
+    ;;
+  build)
+    lock_ios
+    generate
+    build_app "${1:-Debug}"
+    ;;
+  run|preview)
+    lock_ios
+    generate
+    build_app Debug
+    device="$(python3 "$ROOT/scripts/simulator.py" "$SELECTOR")"
+    boot_simulator "$device"
+    app="$ROOT/DerivedData/DevApp/Build/Products/Debug-iphonesimulator/$SCHEME.app"
+    # Recheck immediately before install. Never install a stale unsigned artifact.
+    python3 "$ROOT/scripts/verify-signing.py" "$app"
+    xcrun simctl terminate "$device" "$BUNDLE" >/dev/null 2>&1 || true
+    xcrun simctl install "$device" "$app"
+    installed="$(xcrun simctl get_app_container "$device" "$BUNDLE" app)"
+    python3 "$ROOT/scripts/verify-signing.py" "$installed"
+    open -a Simulator --args -CurrentDeviceUDID "$device"
+    if [ "$ACTION" = preview ]; then xcrun simctl launch "$device" "$BUNDLE" --preview-chat
+    else xcrun simctl launch "$device" "$BUNDLE"; fi
+    ;;
+  test)
+    lock_ios
+    generate
+    device="$(python3 "$ROOT/scripts/simulator.py" "$SELECTOR")"
+    logged ios-tests xcodebuild -project "$ROOT/Untitled Faith.xcodeproj" -scheme "$SCHEME" \
+      -configuration Debug -sdk iphonesimulator -destination "id=$device" \
+      -derivedDataPath "$ROOT/DerivedData/Tests" CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES test
+    ;;
+  check)
+    need npm
+    need python3
+    [ -d "$ROOT/backend/node_modules" ] || { echo "Run npm ci in backend first." >&2; exit 1; }
+    cd "$ROOT/backend"
+    logged bible-index python3 "$ROOT/scripts/bible/build-search.py" --check
+    logged backend-typecheck npm run check
+    logged backend-tests npm test
+    logged backend-bundle npm run deploy:check
+    ;;
+  backend)
+    need npm
+    cd "$ROOT/backend"
+    exec npm run dev
+    ;;
+  verify)
+    need python3
+    python3 "$ROOT/scripts/verify-signing.py" "${1:-$ROOT/DerivedData/DevApp/Build/Products/Debug-iphonesimulator/$SCHEME.app}"
+    ;;
+  auth-check)
+    need python3
+    python3 "$ROOT/scripts/check-auth.py" "$ROOT/DerivedData/DevApp/Build/Products/Debug-iphonesimulator/$SCHEME.app"
+    ;;
+  *) help >&2; exit 2 ;;
+esac

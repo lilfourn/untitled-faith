@@ -1,0 +1,11 @@
+# Copy to .dev.vars and fill locally. Never put either secret in the Apple app.
+OPENROUTER_API_KEY=""
+# Generate at least 32 random bytes, e.g. openssl rand -hex 32.
+SESSION_SIGNING_KEY=""
+# Separate 32-byte base64url encryption key. Keep distinct from SESSION_SIGNING_KEY.
+SESSION_ENCRYPTION_KEY=""
+# Apple Sign in with Apple .p8 contents, with escaped newlines or a quoted multiline value.
+APPLE_PRIVATE_KEY=""
+# Optional. Crossway ESV API key (https://api.esv.org) for exact ESV passages in citation cards.
+# Without it the app quotes the bundled Berean Standard Bible instead.
+ESV_API_KEY=""
