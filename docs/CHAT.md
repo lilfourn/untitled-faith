@@ -133,3 +133,23 @@ Keychain identity verified (`.dev/logs/build-Debug-20260909-205421-9173.log`). A
 regressions passed syntax parsing only; iOS tests and UI automation were not run. Device presentation and real fallback quality remain unverified. The backend was subsequently deployed
 as `ef1f3f13-2136-4262-9f0a-99ab40e8fde3`, and TestFlight 1.0.1 (6) was uploaded successfully; Apple processing
 and phone installation were not verified. See [release record](TESTFLIGHT.md#reliability-update-101).
+
+
+## Monthly allowance without a daily cap
+
+The user superseded the earlier daily-limit decision: the whole monthly allowance can be used on one
+day, and Settings must return to only the usage progress bar and percentage. TestFlight **1.0.2 (7)**
+implements the simpler UI and removes unused daily fields/messages from the client. The monthly
+allowance remains 30. Extra count, reset, and pending-request explanations are removed from Settings.
+
+Migration `0006_monthly_only_allowance.sql` removes the daily reservation predicate without resetting
+existing usage or funding. New ledger rows retain the obsolete `free_daily_limit` field as zero for
+schema compatibility; no enforcement reads it. Older apps receive compatible daily summary fields
+that represent the entire remaining month, with the monthly reset. The backend is deployed as
+`529edd2d-0385-4c3f-bbd8-e7b9c1456931`, and the live SQL trigger confirms no daily limit is enforced.
+
+All 253 Workers tests, type checks, Bible index, and deployment dry run passed
+(`.dev/logs/backend-tests-20260909-211515-25863.log`), including thirty free requests on one day and
+an existing account spending its remaining twenty that day. Signed Release archiving and TestFlight
+upload passed; Apple processing and phone presentation remain unverified. See
+[release details](TESTFLIGHT.md#monthly-allowance-update-102). No iOS tests or paid inference were run.

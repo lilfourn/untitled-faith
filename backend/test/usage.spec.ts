@@ -57,24 +57,46 @@ describe("persistent accounts, quotas, and personal funding", () => {
     expect(new Set(accounts.map(account => account.app_account_token)).size).toBe(1);
   });
 
-  it("enforces five daily free requests, then consumes only personal funding", async () => {
+  it("allows all thirty monthly free requests in one day before using personal funding", async () => {
     const account = await newAccount();
-    for (let i = 0; i < 5; i++) await settleUsage(env.DB, (await reserve(account.id)).id, bill);
-    await expect(reserve(account.id)).rejects.toMatchObject({ status: 402, code: "daily_free_limit" });
+    for (let i = 0; i < 30; i++) {
+      const request = await reserve(account.id);
+      expect(request.funding).toBe('free');
+      await settleUsage(env.DB, request.id, bill);
+    }
+    await expect(reserve(account.id)).rejects.toMatchObject({ status: 402, code: "monthly_free_limit" });
     const beforeFunding = await usageSummary(env.DB, account.id, now);
-    expect(beforeFunding.free).toMatchObject({ remainingToday: 0, remainingThisMonth: 25,
-      resetsAt: '2026-09-10T00:00:00.000Z' });
-    expect(beforeFunding.remainingPercent).toBe(83);
+    expect(beforeFunding.free).toMatchObject({ remainingToday: 0, remainingThisMonth: 0,
+      resetsAt: '2026-10-01T00:00:00.000Z' });
+    expect(beforeFunding.remainingPercent).toBe(0);
     await fund(account.id);
     const paid = await reserve(account.id);
     expect(paid.funding).toBe("paid");
     expect((await requireAccount(env.DB, account.id)).paid_reserved_micros).toBe(10000);
     await settleUsage(env.DB, paid.id, bill);
     const summary = await usageSummary(env.DB, account.id, now);
-    expect(summary.free.usedThisMonth).toBe(5);
+    expect(summary.free.usedThisMonth).toBe(30);
     expect(summary.funding.availableMicros).toBe(4_248_000);
-    expect(summary.usage.promptTokens).toBe(600);
-    expect(summary.usage.completionTokens).toBe(1200);
+    expect(summary.usage.promptTokens).toBe(3100);
+    expect(summary.usage.completionTokens).toBe(6200);
+  });
+
+  it("lets an existing account use its entire remaining month today", async () => {
+    const account = await newAccount();
+    for (let i = 0; i < 10; i++) {
+      await settleUsage(env.DB, (await reserve(account.id, new Date('2026-09-08T12:00:00Z'))).id, bill);
+    }
+    // Old ledger entries can keep their original daily-limit metadata without enforcing it.
+    await env.DB.prepare('UPDATE usage_requests SET free_daily_limit = 5 WHERE user_id = ?').bind(account.id).run();
+    for (let i = 0; i < 20; i++) {
+      const before = await usageSummary(env.DB, account.id, now);
+      expect(before.free.remainingToday).toBe(20 - i);
+      expect(before.free.remainingToday).toBe(before.free.remainingThisMonth);
+      const request = await reserve(account.id);
+      expect(request.funding).toBe('free');
+      await settleUsage(env.DB, request.id, bill);
+    }
+    await expect(reserve(account.id)).rejects.toMatchObject({ status: 402, code: 'monthly_free_limit' });
   });
 
   it("resets the free allowance by UTC month while paid funding carries forward", async () => {
@@ -93,7 +115,7 @@ describe("persistent accounts, quotas, and personal funding", () => {
     expect((await requireAccount(env.DB, account.id)).paid_balance_micros).toBe(4_250_000);
   });
 
-  it("identifies the monthly limit even when a new day has free daily slots", async () => {
+  it("does not reset monthly usage when the day changes", async () => {
     const account = await newAccount();
     for (let day = 1; day <= 6; day++) {
       for (let question = 0; question < 5; question++) {

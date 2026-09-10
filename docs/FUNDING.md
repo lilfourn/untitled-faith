@@ -48,7 +48,7 @@ Use $0.02 as a cautious planning assumption until representative usage is measur
 
 ## Proposed fair-use allowance
 
-The implemented free allowance is **up to 5 questions per day and 30 per month per person**, subject to the shared free-access budget. The user subsequently chose personal contributed funding for usage beyond this allowance. At the full 30-question allowance, the original 3,000-answer planning pool funds 100 monthly active people. It can serve more people if average use is lower, but cannot guarantee that allowance to an unlimited audience. Actual spending is enforced by cost, not by the 3,000-answer estimate.
+The implemented free allowance is **up to 30 questions per month per person, with no daily cap**, subject to the shared free-access budget. The user subsequently chose personal contributed funding for usage beyond this allowance. At the full 30-question allowance, the original 3,000-answer planning pool funds 100 monthly active people. It can serve more people if average use is lower, but cannot guarantee that allowance to an unlimited audience. Actual spending is enforced by cost, not by the 3,000-answer estimate.
 
 At 1,000 monthly active people each using 30 answers, the same cost assumption requires about $666.25/month including the reserve. Above the owner's $100, that would require approximately $666.18/month in gross tips at the assumed 15% Apple commission, before tax/refund adjustments.
 

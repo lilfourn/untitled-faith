@@ -1,5 +1,5 @@
 import { requireAccount } from "./accounts";
-import { billingPeriod, FREE_DAILY_QUESTIONS, FREE_MONTHLY_CASH_MICROS, FREE_MONTHLY_QUESTIONS } from "./billing-policy";
+import { billingPeriod, FREE_MONTHLY_CASH_MICROS, FREE_MONTHLY_QUESTIONS } from "./billing-policy";
 import { APIError } from "./http";
 
 export type Reservation = { id: string; funding: "free" | "paid"; reservedMicros: number };
@@ -19,10 +19,11 @@ export async function reserveUsage(db: D1Database, userID: string, key: string, 
   let freeFailure: string | undefined;
   for (const funding of ["free", "paid"] as const) {
     try {
+      // free_daily_limit is retained as legacy ledger data, no longer enforced by the trigger.
       await db.prepare(`INSERT INTO usage_requests
         (id, user_id, idempotency_key, month, day, created_at, updated_at, funding, reserved_micros, free_daily_limit, free_monthly_limit)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, userID, key, month, day, now.getTime(), now.getTime(),
-        funding, amount, FREE_DAILY_QUESTIONS, FREE_MONTHLY_QUESTIONS).run();
+        funding, amount, 0, FREE_MONTHLY_QUESTIONS).run();
       return { id, funding, reservedMicros: amount };
     } catch (error) {
       const code = errorCode(error);
@@ -32,12 +33,7 @@ export async function reserveUsage(db: D1Database, userID: string, key: string, 
       }
       if (code === "insufficient_funding" && freeFailure) {
         if (freeFailure === "free_pool_exhausted") throw new APIError(402, "free_pool_exhausted");
-        const counts = await db.prepare(`SELECT COUNT(*) AS monthly,
-          COALESCE(SUM(day = ?), 0) AS daily FROM usage_requests
-          WHERE user_id = ? AND month = ? AND funding = 'free' AND status != 'released'`)
-          .bind(day, userID, month).first<{ monthly: number; daily: number }>();
-        if ((counts?.monthly ?? 0) >= FREE_MONTHLY_QUESTIONS) throw new APIError(402, "monthly_free_limit");
-        if ((counts?.daily ?? 0) >= FREE_DAILY_QUESTIONS) throw new APIError(402, "daily_free_limit");
+        throw new APIError(402, "monthly_free_limit");
       }
       if (code) throw new APIError(code === "account_missing" ? 401 : code === "insufficient_funding" ? 402 : 409, code);
       throw error;
@@ -97,11 +93,13 @@ export async function usageSummary(db: D1Database, userID: string, now = new Dat
   const displayRemaining = remainingFree * freeDisplayValue + Math.max(0, account.paid_balance_micros - account.paid_reserved_micros);
   const remainingPercent = Math.max(0, Math.min(100, Math.floor(displayRemaining * 100 / displayCapacity)));
   return { month, resetsAt, remainingPercent, currency: "USD", appAccountToken: account.app_account_token,
-    free: { dailyLimit: FREE_DAILY_QUESTIONS, monthlyLimit: FREE_MONTHLY_QUESTIONS,
-      resetsAt: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString(),
+    // Legacy clients still decode daily fields. Their available-today value now equals
+    // the whole remaining month; these fields impose no separate daily restriction.
+    free: { dailyLimit: FREE_MONTHLY_QUESTIONS, monthlyLimit: FREE_MONTHLY_QUESTIONS,
+      resetsAt,
       usedToday: counts?.free_used_today ?? 0, usedThisMonth: counts?.free_used ?? 0,
-      remainingToday: Math.max(0, FREE_DAILY_QUESTIONS - (counts?.free_used_today ?? 0)),
-      remainingThisMonth: Math.max(0, FREE_MONTHLY_QUESTIONS - (counts?.free_used ?? 0)) },
+      remainingToday: remainingFree,
+      remainingThisMonth: remainingFree },
     funding: { balanceMicros: account.paid_balance_micros, reservedMicros: account.paid_reserved_micros,
       availableMicros: Math.max(0, account.paid_balance_micros - account.paid_reserved_micros) },
     usage: { totalRequests: counts?.total_requests ?? 0, pendingRequests: counts?.pending_requests ?? 0,

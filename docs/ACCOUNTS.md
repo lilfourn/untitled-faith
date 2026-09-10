@@ -6,9 +6,9 @@ The Cloudflare D1 database is `untitled-faith-users`, bound as `DB`. Accounts ar
 
 ## Enforcement
 
-- Free allowance: 5 requests per UTC day and 30 per UTC calendar month, subject to the shared monthly pool.
+- Free allowance: 30 requests per UTC calendar month, usable on any day, subject to the shared monthly pool. There is no daily cap.
 - Shared free pool: $63.30/month of cash-equivalent service spending, representing $60 of inference plus the 5.5% credit-acquisition fee. The remainder of the owner's $100 plan is membership, hosting, and reserves. This is a limit on the free pool, not unlimited coverage for refunds or new infrastructure costs.
-- When free allowance or shared capacity is exhausted, use only that account's contributed funding. If it cannot reserve enough for the request, return `402 insufficient_funding` before inference.
+- When free allowance or shared capacity is exhausted, use only that account's contributed funding. If it cannot reserve enough for the request, return HTTP 402 with the monthly allowance, shared-pool, or insufficient-funding reason before inference.
 - Contribution usage credit is gross proceeds less verified payment fees and any explicitly chosen developer thanks. The optional developer share is 0–3% of the original contribution, rounded to cents, and defaults to zero. It comes out of the total, never on top. Usage funding does not expire or reset with the free month. Compute has no profit markup.
 - Money uses integer micro-USD, never floating-point balances. SQL triggers check and reserve funds atomically; concurrent requests cannot double-spend. Only one request may be actively generating per account.
 - Every answer requires a stable `Idempotency-Key`. Repeating it cannot trigger another paid generation. Answers themselves are not stored for replay.
@@ -33,9 +33,14 @@ A cron every 15 minutes checks uncertain requests with a provider generation ID 
 
 ## App display
 
-`GET /v1/me/usage` returns only the authenticated account's summary. Settings shows a monthly progress bar and percentage, plus separate remaining daily/monthly free-request counts. When a free limit is reached, it shows the relevant reset time in the device's local timezone. It does not display dollar balances or token counts. The September 9 update also distinguishes daily, monthly, and shared-pool failures when paid funding cannot cover a request; see [validation and release status](CHAT.md#cheaper-fallback-and-allowance-clarity).
+`GET /v1/me/usage` returns only the authenticated account's summary. Settings shows a single usage
+progress bar and percentage, without daily/monthly counts, reset notices, or pending-request details.
+The monthly allowance can be used entirely in one day. Older clients still receive compatible daily
+fields, but their remaining-today value equals the entire remaining monthly allowance and their reset
+is the monthly reset. Migration `0006_monthly_only_allowance.sql` removes the database's daily check;
+the historical `free_daily_limit` ledger column is no longer enforced.
 
-For a single bar covering both free questions and personal funding, the percentage is a display-only normalization: each free question has the planning weight of $0.02 plus the 5.5% acquisition fee; paid funding uses its actual available value. The denominator includes the month's starting paid balance, net added funding, and the full free allowance. The percentage is approximate; it never authorizes spending, bypasses daily limits, or guarantees the shared pool remains available.
+For a single bar covering both free questions and personal funding, the percentage is a display-only normalization: each free question has the planning weight of $0.02 plus the 5.5% acquisition fee; paid funding uses its actual available value. The denominator includes the month's starting paid balance, net added funding, and the full free allowance. The percentage is approximate; it never authorizes spending, bypasses monthly limits, or guarantees the shared pool remains available.
 
 ## Account deletion
 

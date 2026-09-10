@@ -80,6 +80,23 @@ Apple accepted the upload; processing completion and device installation have no
 Personal Testing has automatic distribution enabled. This upload does not submit the new build to
 external beta review or publish an App Store release.
 
+## Monthly allowance update 1.0.2
+
+On September 9, 2026, version **1.0.2 (build 7)** uploaded successfully to App Store Connect.
+The daily five-request restriction is removed: users may use the whole monthly allowance in one day.
+Settings returns to its single usage progress bar and percentage, without the added daily/monthly
+counts or reset explanations. The monthly allowance remains 30 free requests.
+
+Archive: `DerivedData/Archives/Untitled Faith-20260909-211542-7.xcarchive`.
+Archive log: `.dev/logs/archive-20260909-211542-25987.log`.
+Upload log: `.dev/logs/testflight-upload-20260909-211700-26887.log`.
+The archive's version/build, Apple sign-in, and Keychain identity were verified. All 253 backend tests,
+TypeScript, Bible index, and deployment dry run passed. The database migration and matching Worker
+were deployed before upload; the live trigger was checked to confirm removal of daily enforcement.
+No iOS tests, simulator UI automation, or paid inference were run. Apple accepted the upload for
+processing; processing completion and phone installation were not verified. Internal automatic
+TestFlight distribution remains enabled; this upload does not submit external beta review.
+
 ## References
 
 - [Apple: Upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)

@@ -34,7 +34,6 @@ enum AnswerServiceError: LocalizedError {
     case invalidResponse
     case sourcesUnavailable
     case fundingRequired
-    case dailyFreeLimit
     case monthlyFreeLimit
     case freePoolUnavailable
     case requestConflict
@@ -52,8 +51,7 @@ enum AnswerServiceError: LocalizedError {
         case .timedOut: "The answer took too long. Please try again."
         case .sourcesUnavailable: "We couldn’t verify the sources for this answer. Your question is saved; please retry."
         case .invalidResponse: "We couldn’t read the answer. Please try again."
-        case .dailyFreeLimit: "You’ve reached today’s free answer limit. Your monthly allowance may still have answers left. Check Settings for the reset time."
-        case .monthlyFreeLimit: "You’ve used this month’s free answers. Check Settings for the reset date or available funding."
+        case .monthlyFreeLimit: "You’ve used this month’s free answers. Your allowance renews next month."
         case .freePoolUnavailable: "Free answers are temporarily unavailable because the shared free budget can’t cover this request. Your personal allowance may still have answers left."
         case .fundingRequired: "No free answers are available right now, and your funding balance can’t cover this question. Check your allowance in Settings."
         case .requestConflict: "This question is already being processed or has already been counted. Please check your conversation before sending again."

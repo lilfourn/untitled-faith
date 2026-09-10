@@ -6,7 +6,6 @@ import { SEARCH_CALLS, SEARCH_RESULTS, SEARCH_CHARACTERS, SEARCH_COST_USD } from
 import { biblePrompt, retrieveBible } from "./bible/context";
 import type { BibleContext } from "./bible/types";
 
-export const FREE_DAILY_QUESTIONS = 5;
 export const FREE_MONTHLY_QUESTIONS = 30;
 // $60 in inference credits plus their 5.5% acquisition fee; preserves the owner's $100 total plan.
 export const FREE_MONTHLY_CASH_MICROS = 63_300_000;

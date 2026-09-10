@@ -88,8 +88,7 @@ final class ProxyAnswerServiceTests: XCTestCase {
     }
 
     func testPreservesAllowanceFailureReasonsForJSONAndStreaming() async {
-        for (code, expected) in [("daily_free_limit", AnswerServiceError.dailyFreeLimit),
-                                 ("monthly_free_limit", .monthlyFreeLimit), ("free_pool_exhausted", .freePoolUnavailable)] {
+        for (code, expected) in [("monthly_free_limit", AnswerServiceError.monthlyFreeLimit), ("free_pool_exhausted", .freePoolUnavailable)] {
             for stream in [false, true] {
                 let client = service(status: 402, body: "{\"error\":{\"code\":\"\(code)\"}}")
                 do {

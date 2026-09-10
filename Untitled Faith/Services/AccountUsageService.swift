@@ -11,12 +11,8 @@ struct AccountUsage: Decodable {
     let usage: Usage
 
     struct FreeAllowance: Decodable {
-        let resetsAt: String?
-        let dailyLimit: Int
         let monthlyLimit: Int
-        let usedToday: Int
         let usedThisMonth: Int
-        let remainingToday: Int
         let remainingThisMonth: Int
     }
     struct Funding: Decodable {

@@ -44,7 +44,6 @@ struct ProxyAnswerService: AnswerService {
         case 401: return .signInRequired
         case 402:
             switch code {
-            case "daily_free_limit": return .dailyFreeLimit
             case "monthly_free_limit": return .monthlyFreeLimit
             case "free_pool_exhausted": return .freePoolUnavailable
             default: return .fundingRequired
