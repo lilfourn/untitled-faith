@@ -97,6 +97,21 @@ No iOS tests, simulator UI automation, or paid inference were run. Apple accepte
 processing; processing completion and phone installation were not verified. Internal automatic
 TestFlight distribution remains enabled; this upload does not submit external beta review.
 
+## Native toolbar update 1.0.3
+
+On September 9, 2026, version **1.0.3 (build 8)** uploaded successfully to App Store Connect.
+Chat history and compose are now native `ToolbarItemGroup` buttons with icon-only system labels.
+History uses `clock`; compose uses `square.and.pencil`. The custom 22-point font, 44-point label frames,
+and HStack grouping are removed so iOS controls symbol scale, spacing, and toolbar presentation.
+
+Archive: `DerivedData/Archives/Untitled Faith-20260909-213745-8.xcarchive`.
+Archive log: `.dev/logs/archive-20260909-213745-38267.log`.
+Upload log: `.dev/logs/testflight-upload-20260909-213828-38879.log`.
+Signed Release archiving passed, with version/build, Apple sign-in, and Keychain identity verified.
+Apple accepted the upload for processing. No iOS tests or simulator UI automation were run, and actual
+phone appearance/processing completion have not been verified. This client-only change required no
+backend deployment. Personal Testing retains automatic distribution; external beta review is separate.
+
 ## References
 
 - [Apple: Upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)

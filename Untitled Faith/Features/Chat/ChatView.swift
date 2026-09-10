@@ -105,22 +105,18 @@ struct ChatView: View {
                 } else {
                     settingsToolbarItem
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 0) {
-                        Button { showingHistory = true } label: {
-                            toolbarIcon("clock.arrow.circlepath")
-                        }
-                        .accessibilityLabel("Conversations")
-                        .disabled(store.isSending)
-                        Button {
-                            store.newConversation()
-                            followingAnswer = true
-                        } label: {
-                            toolbarIcon("square.and.pencil")
-                        }
-                        .accessibilityLabel("New conversation")
-                        .disabled(store.conversation.messages.isEmpty || store.isSending)
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button("Conversations", systemImage: "clock") {
+                        showingHistory = true
                     }
+                    .labelStyle(.iconOnly)
+                    .disabled(store.isSending)
+                    Button("New conversation", systemImage: "square.and.pencil") {
+                        store.newConversation()
+                        followingAnswer = true
+                    }
+                    .labelStyle(.iconOnly)
+                    .disabled(store.conversation.messages.isEmpty || store.isSending)
                 }
             }
             .safeAreaInset(edge: .bottom) { composer }
@@ -148,13 +144,6 @@ struct ChatView: View {
             }
 
         }
-    }
-
-    private func toolbarIcon(_ symbol: String) -> some View {
-        Image(systemName: symbol)
-            .font(.system(size: 22, weight: .regular))
-            .frame(width: 44, height: 44, alignment: .center)
-            .contentShape(Rectangle())
     }
 
     private var settingsToolbarItem: some ToolbarContent {

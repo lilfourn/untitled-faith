@@ -153,3 +153,14 @@ All 253 Workers tests, type checks, Bible index, and deployment dry run passed
 an existing account spending its remaining twenty that day. Signed Release archiving and TestFlight
 upload passed; Apple processing and phone presentation remain unverified. See
 [release details](TESTFLIGHT.md#monthly-allowance-update-102). No iOS tests or paid inference were run.
+
+
+## Native toolbar icons
+
+The user found the custom toolbar symbols too large. Version **1.0.3 (8)** replaces the trailing HStack
+and forced 22-point/44-point label sizing with native `ToolbarItemGroup` buttons. Icon-only system labels
+preserve accessibility names and disabled behavior. History uses the simpler `clock` SF Symbol, and
+new conversation uses the standard `square.and.pencil`; iOS supplies sizing, spacing, and shared toolbar
+presentation. Signed Release archiving and TestFlight upload passed. Phone rendering and Apple processing
+were not verified; no iOS tests or simulator UI automation were run. See
+[release details](TESTFLIGHT.md#native-toolbar-update-103).
