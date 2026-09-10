@@ -111,7 +111,8 @@ Never rehearse a restore on the production database.
 Consult the installed CLI help and current [Wrangler D1 commands](https://developers.cloudflare.com/workers/wrangler/commands/d1/),
 [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/), and
 [Worker rollback limitations](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/)
-before an actual operation. This implementation did not provision staging, set
-remote alerts, restore a database, or deploy a Worker. One diagnostic reproduction
-of the reported Paul question used provider credits; a full live quality evaluation
-has not been run.
+before an actual operation. The September 10 release applied migrations 0007/0008,
+deployed the reviewed Worker, and uploaded app 1.0.6 (11); see the release records.
+Staging, remote alert delivery, and a database-restore rehearsal remain outstanding.
+One diagnostic reproduction and one post-deployment Paul-answer smoke test used
+provider credits; a full live quality evaluation has not been run.

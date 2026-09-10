@@ -1,8 +1,45 @@
 # Deployment status
 
-Updated September 9, 2026.
+Updated September 10, 2026.
 
-## Stripe integration: local source only, September 10
+## Reliability release 1.0.6 — deployed September 10
+
+Worker version `834cb8e4-f263-48aa-9fea-88f6c3469030` is serving 100% of traffic,
+from source commit `d34ae208b2033f9213882e24c089c03e0aa288b0`. Deployment used a
+frozen source snapshot (`.dev/release-1.0.6-11`) after detecting concurrent payment
+edits during initial validation. Later working-directory changes were preserved.
+The release includes account/session recovery, resumable deletion, audited usage
+recovery, retry status/readiness endpoints, and specific answer-format diagnostics.
+Payment integration code is deployed, but **purchases remain disabled**.
+
+Migrations `0007_recovery.sql` and `0008_stripe_payments.sql` were applied before
+Worker deployment. The migration list now reports none pending. The prior Worker
+version and a pre-migration D1 Time Travel bookmark are recorded in
+`.dev/reliability-release-deployment.json`. Secrets were retained using
+`npm run deploy -- --keep-vars --strict`; no keys were rotated or uploaded.
+
+The frozen release passed the Bible index, TypeScript, **376 Workers tests**,
+two recovery-script tests, and deployment dry run. Frozen-check logs are under
+`.dev/release-check-1.0.6-11/logs/` (backend tests: `backend-tests-20260910-105751-93860.log`).
+Migration log: `.dev/logs/reliability-migrations-20260910.log`.
+Deployment log: `.dev/logs/reliability-worker-deploy-20260910.log`.
+
+Live verification passed public health (200), unauthenticated answer rejection
+(401), invalid Apple credential rejection (401), authenticated readiness with
+recovery schema 7, and payment configuration with `enabled: false`. A live SSE
+request for “Give me the story of Paul” returned `start`, `delta`, and `done` in
+11,145 ms; its one usage record settled at 10,163 micro-USD including review and
+acquisition fees. The isolated operator account was removed after settlement;
+no existing user's question allowance was used. Verification record:
+`.dev/reliability-live-verification.json`. This is a backend smoke test, not a
+verification of the native Apple authorization UI or every possible model response.
+
+The signed app **1.0.6 (11)** was uploaded successfully to App Store Connect and
+accepted for processing. See [TestFlight release record](../docs/TESTFLIGHT.md).
+No iOS tests or simulator UI automation were run.
+
+## Stripe implementation record — before this deployment
+
 
 The Stripe Checkout/Apple Pay integration and owner-only Payment overview are implemented locally;
 **production purchases remain disabled** (`PAYMENTS_ENABLED=false`). Luke chose a **separate Untitled Faith

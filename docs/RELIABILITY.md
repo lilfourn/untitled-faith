@@ -29,7 +29,12 @@ Implemented:
 
 The backend requires migration 0007 before deployment. The combined checkout
 also includes payment migration 0008. See [operations and release recovery](OPERATIONS.md).
-These changes have not been deployed by this implementation task.
+The release snapshot was deployed September 10 as Worker version
+`834cb8e4-f263-48aa-9fea-88f6c3469030` from commit `d34ae20`, after both migrations
+were applied. App **1.0.6 (11)** uploaded successfully and Apple accepted it for
+processing. The release passed 376 backend tests and two script tests; a live
+Paul-answer request completed in 11.1 seconds and settled correctly. See the
+[deployment record](../backend/DEPLOYMENT.md) and [TestFlight record](TESTFLIGHT.md).
 
 ### Reported Paul-answer failure
 
@@ -71,8 +76,8 @@ iOS tests and simulator UI automation were not run, as required by AGENTS.md.
 Only the existing non-blocking App Intents metadata warning was emitted.
 Workflow YAML parsing and `git diff --check` passed.
 
-Still required before claiming end-to-end release readiness: deploy a coherent
-revision with its migrations; run real signed-in/device acceptance journeys;
+Still required before claiming complete end-to-end verification: confirm Apple
+processing and run real signed-in/device acceptance journeys;
 configure operational alert delivery; verify the first hosted CI run; rehearse
 staging database/Worker recovery; and run the broader live answer-quality suite.
 

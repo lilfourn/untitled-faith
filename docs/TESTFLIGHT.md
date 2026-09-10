@@ -154,3 +154,30 @@ Source commit: `5d505d8`. No external beta review or App Store release was submi
 - [Apple: Add internal testers](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers/)
 - [Apple: Invite external testers](https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers/)
 - [Apple: Required-reason privacy declarations](https://developer.apple.com/documentation/technotes/tn3183-adding-required-reason-api-entries-to-your-privacy-manifest)
+
+
+## Account and chat recovery update 1.0.6
+
+On September 10, 2026, **1.0.6 (build 11)** uploaded successfully to App Store
+Connect. Xcode reported “Uploaded package is processing,” “Upload succeeded,”
+and `EXPORT SUCCEEDED`. Processing completion and installation on Luke's phone
+have not been verified. Personal Testing retains automatic distribution; this
+upload does not publish an App Store release or submit external beta review.
+
+The release restores reachable account/AI controls, retries temporary session
+restoration failures, resumes account deletion and device cleanup, preserves
+unsaved answers, displays stale usage honestly, and checks request status before
+retrying. It includes the gated payment integration and the concurrent chat haptic
+work. Production purchases remain disabled until their separate setup and testing
+are complete. Backend response-format failures now have specific diagnostics;
+invalid model output is still rejected.
+
+Source commit: `d34ae208b2033f9213882e24c089c03e0aa288b0`.
+Archive: `DerivedData/Archives/Untitled Faith-20260910-105435-11.xcarchive`.
+Archive log: `.dev/logs/archive-20260910-105435-90790.log`.
+Upload log: `.dev/logs/testflight-upload-20260910-110328-98264.log`.
+Version/build, production backend URL, export compliance declaration, Apple
+sign-in, and Keychain signing were verified on the archive. The backend was
+migrated and deployed first; its authenticated readiness and live Paul-answer
+smoke test passed. The frozen backend passed 376 runtime tests and two recovery
+script tests. No iOS test suite or simulator UI automation was run.
