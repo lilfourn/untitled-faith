@@ -26,6 +26,7 @@ struct AccountUsage: Codable {
         let promptTokens: Int
         let completionTokens: Int
         let costMicros: Int64
+        var requestsNeedingReview: Int? = nil
     }
 }
 

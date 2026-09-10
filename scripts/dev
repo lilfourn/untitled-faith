@@ -21,6 +21,7 @@ Usage: ./scripts/dev <command>
   upload <archive-path> Upload to App Store Connect for TestFlight (manages signing/build number)
   run                Build, verify entitlements, install, and open the app
   preview            Open the Debug chat preview (no authentication bypass for real API calls)
+  build-tests        Compile signed iOS tests without launching a simulator
   test               Run signed iOS tests using a separate build folder
   check              Type-check and test the backend, then check its deployment bundle
   backend            Start the local backend development server
@@ -195,6 +196,13 @@ case "$ACTION" in
     if [ "$ACTION" = preview ]; then xcrun simctl launch "$device" "$BUNDLE" --preview-chat
     else xcrun simctl launch "$device" "$BUNDLE"; fi
     ;;
+  build-tests)
+    lock_ios
+    generate
+    logged ios-test-build xcodebuild -project "$ROOT/Untitled Faith.xcodeproj" -scheme "$SCHEME" \
+      -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+      -derivedDataPath "$ROOT/DerivedData/Tests" CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES build-for-testing
+    ;;
   test)
     lock_ios
     generate
@@ -211,6 +219,7 @@ case "$ACTION" in
     logged bible-index python3 "$ROOT/scripts/bible/build-search.py" --check
     logged backend-typecheck npm run check
     logged backend-tests npm test
+    logged recovery-script-tests node --test scripts/usage-recovery.node.mjs
     logged backend-bundle npm run deploy:check
     ;;
   backend)

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
 import { accountForIdentity } from '../src/accounts';
 import { CONSENT_VERSION } from '../src/contract';
-import { MAX_ANSWER_LENGTH, MAX_MODERATED_CONTENT_LENGTH, POLICY_RESPONSES, moderatedAnswer } from '../src/content-policy';
+import { MAX_ANSWER_LENGTH, MAX_MODERATED_CONTENT_LENGTH, POLICY_RESPONSES, AnswerValidationError, moderatedAnswer } from '../src/content-policy';
 
 const upstream = vi.fn<typeof fetch>();
 const usage = { cost: 0.001, prompt_tokens: 20, completion_tokens: 5 };
@@ -79,10 +79,10 @@ describe.each([false, true])('moderation enforcement (stream=%s)', stream => {
     expect(result.wire).not.toContain('MUST_NOT_ESCAPE');
     if (stream) {
       expect(result.events.map(event => event.type)).toEqual(['start', 'error']);
-      expect(result.events.at(-1).error.code).toBe('answer_unavailable');
+      expect(result.events.at(-1).error.code).toBe('invalid_answer_format');
     } else {
       expect(result.response.status).toBe(502);
-      expect(result.value.error.code).toBe('answer_unavailable');
+      expect(result.value.error.code).toBe('invalid_answer_format');
     }
     expect((await env.DB.prepare('SELECT status FROM usage_requests').first())?.status).toBe('settled');
   });
@@ -98,9 +98,9 @@ describe.each([false, true])('moderation enforcement (stream=%s)', stream => {
 it('bounds serialized input and decoded text separately, allowing valid JSON escapes', () => {
   const content = '{"decision":"answer","answer":"' + '\\u0041'.repeat(MAX_ANSWER_LENGTH) + '"}';
   expect(moderatedAnswer(content)).toEqual({ generated: true, decision: 'answer', text: 'A'.repeat(MAX_ANSWER_LENGTH) });
-  expect(() => moderatedAnswer(' '.repeat(MAX_MODERATED_CONTENT_LENGTH + 1))).toThrow('answer_unavailable');
+  expect(() => moderatedAnswer(' '.repeat(MAX_MODERATED_CONTENT_LENGTH + 1))).toThrow('invalid_answer_format');
   for (const value of [null, [], { decision: 'answer', answer: 42 }, { decision: 'toString', answer: '' }]) {
-    expect(() => moderatedAnswer(JSON.stringify(value))).toThrow('answer_unavailable');
+    expect(() => moderatedAnswer(JSON.stringify(value))).toThrow('invalid_answer_format');
   }
 });
 
@@ -109,7 +109,7 @@ it.each(['\n', '\r\n'])('validates an exact JSON fence with %j line endings', ne
   expect(moderatedAnswer('```json' + newline + envelope + newline + '```')).toEqual({
     text: 'An allowed answer.', generated: true, decision: 'answer',
   });
-  expect(() => moderatedAnswer('```json' + newline + 'not json' + newline + '```')).toThrow('answer_unavailable');
+  expect(() => moderatedAnswer('```json' + newline + 'not json' + newline + '```')).toThrow('invalid_answer_format');
 });
 
 it('normalizes only literal JSON string whitespace without interpreting answer content as fields', () => {
@@ -120,6 +120,23 @@ it('normalizes only literal JSON string whitespace without interpreting answer c
   // Missing quotes/braces and unsupported control characters still fail closed.
   for (const invalid of [raw.slice(0, -1), '{"decision":"answer","answer":"unescaped "quote""}',
     '{"decision":"answer","answer":"bad\u0000control"}', '{"decision":"answer","answer":"bad\\' + '\n' + 'escape"}']) {
-    expect(() => moderatedAnswer(invalid)).toThrow('answer_unavailable');
+    expect(() => moderatedAnswer(invalid)).toThrow('invalid_answer_format');
+  }
+});
+
+
+it.each([
+  ['Plain text without an envelope', 'string_count'],
+  ['{"decision":"answer","answer":"text",}', 'invalid_json'],
+  ['{"decision":"answer","other":"text"}', 'fields'],
+  ['{"decision":"answer","answer":""}', 'empty_answer'],
+  ['{"decision":"allow","answer":"text"}', 'decision'],
+  [JSON.stringify({ decision: 'answer', answer: 'a'.repeat(MAX_ANSWER_LENGTH + 1) }), 'answer_length'],
+])('classifies invalid response formats without retaining content %#', (content, reason) => {
+  try { moderatedAnswer(content); throw new Error('Expected validation failure'); }
+  catch (error) {
+    expect(error).toBeInstanceOf(AnswerValidationError);
+    expect(error).toMatchObject({ code: 'invalid_answer_format', reason });
+    expect(JSON.stringify(error)).not.toContain(content);
   }
 });

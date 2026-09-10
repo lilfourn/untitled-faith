@@ -15,6 +15,8 @@
 		0F32D200E9550211EC57D4D2 /* AccountUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B340FF672D4BFDB48BF71B8D /* AccountUsageStore.swift */; };
 		11DFFAD090F8AFDA150E7711 /* QuotationPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 289053F41CEC7F3B3E13CB0A /* QuotationPresentationTests.swift */; };
 		1566243B15F710BD8CE03E6A /* LocalConversationStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = D79D6434EAC2040B355589DB /* LocalConversationStorage.swift */; };
+		1DCCAE02EC8D79DF24EE705E /* PendingAccountDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E312EAA1A65A9C88509805 /* PendingAccountDeletion.swift */; };
+		1F1A651E017F18885185049E /* StripeContributionCheckout.swift in Sources */ = {isa = PBXBuildFile; fileRef = E33A835BC239DFBC0F7BCD17 /* StripeContributionCheckout.swift */; };
 		1F81E353FD5374D65A478D82 /* ScriptureQuoter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDDEF1798B4FDC62DAAC205D /* ScriptureQuoter.swift */; };
 		230C13C4C309E0C1E1147774 /* BibleBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA28E5885D1262500CDC17B /* BibleBook.swift */; };
 		269FCA45C7A841166DCC392A /* ChatSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 378254F8F5EC024C022D8350 /* ChatSessionTests.swift */; };
@@ -33,16 +35,19 @@
 		49335140092B9B6B40D6A7EF /* ProxyAnswerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B110277C45153D7026D7889E /* ProxyAnswerService.swift */; };
 		4FBCA33DB7709356C926A2DA /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB64D10446194B1281A683C6 /* ChatView.swift */; };
 		55451E77C62CD1FA5CC921B6 /* ContributionWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 382C18F3052B2CD52D6DA0DA /* ContributionWizard.swift */; };
+		56FE7D1A5366FD248525BA63 /* PaymentEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3EC8B362BABD8B43FBFD0CC /* PaymentEntry.swift */; };
 		579B76C8001E78185D8A7685 /* AnswerMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = E498DDD2C8EE972A846BF661 /* AnswerMarkdown.swift */; };
 		586AD0B30B5DA5E55A9D4584 /* ContributionDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD8508386109392C435F698 /* ContributionDraft.swift */; };
 		5ACD2D8704CCAC0EB5D762AD /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 81BF85592A61B02900CF1EC3 /* PrivacyInfo.xcprivacy */; };
 		5E61BA83006A0BFF660052C0 /* AuthenticationKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A533B296B7037816ADCD48B3 /* AuthenticationKeychain.swift */; };
 		615A617A0743FB84B5DBAD2A /* ESVPassageClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC133F872A69C78C8CAF734F /* ESVPassageClient.swift */; };
 		692F9727EDBABAA2A000C5A2 /* AppleAuthorizationPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A47B70E2094A72AF068F91ED /* AppleAuthorizationPresenter.swift */; };
+		69A8EF72995D7A3090AF1D50 /* OwnerPaymentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8F7C9F6BD628CBDE4A778C /* OwnerPaymentsView.swift */; };
 		6B2650C7193D9D1E0B9174ED /* VerseCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8EAF7118E65C73D20CEDE7E /* VerseCarousel.swift */; };
 		6BF5F3979DBCB5687D5DDD65 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66345DDA0794CAF8164B244C /* SignInView.swift */; };
 		75D6B65771554022662456CB /* LocalProfilePhotoStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7204745FF41A8540BEFC938C /* LocalProfilePhotoStorage.swift */; };
 		79FC53141EECB67753651C85 /* UsageSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4BB9D69D467109B5DCF046 /* UsageSection.swift */; };
+		7B1E75ECB180F8D14F34792B /* OwnerPaymentSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4146D6DF904F4A17C6C2833F /* OwnerPaymentSummary.swift */; };
 		7C89C76873FEC167CB16559B /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 6AFAFCF3C8E462DB3C3C5D3A /* MarkdownUI */; };
 		7EE048288879691765244632 /* HomeVersesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D38E939996979098F62A34D /* HomeVersesTests.swift */; };
 		8FD5033341AB24DBB7E10399 /* AccountUsageStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67141E93452C81A9D35363EA /* AccountUsageStoreTests.swift */; };
@@ -58,17 +63,21 @@
 		AE87FB49A1BE69022A6CFAFC /* ScriptureReferenceDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06F1B7ABF68A565C97201A0 /* ScriptureReferenceDetector.swift */; };
 		AEAA422E25CA7B205B5EA561 /* QuotationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C605F87EE0F52F4BAD870B /* QuotationCard.swift */; };
 		B4AB772357F442F8CD3DC926 /* ThinkingText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD47208D6F92FF4AF597A5E /* ThinkingText.swift */; };
+		B7FDCEF965E16A5EC30D56C7 /* ChatHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 589E0E7053F678F9729D63CD /* ChatHaptics.swift */; };
 		BA62DB4A167A5875FA7F30FE /* AnswerSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D80D12FBC9CD737224569D /* AnswerSourceTests.swift */; };
 		BB3E14064036A94B711B3F0E /* ScriptureQuoterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E43C370FC575EA43173BE7 /* ScriptureQuoterTests.swift */; };
+		BF93541ADBAFBD31F58169DE /* ContributionPaymentSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D73DE1814D841BC476DBDD2D /* ContributionPaymentSheet.swift */; };
 		BFE9EBE1BD9C6DEC401FAA1B /* UntitledFaithApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DD40CAF20DBE1B31B1D156B /* UntitledFaithApp.swift */; };
 		C2A792E3FB43F15ACCB22C54 /* AppSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95A6D333EECF9B535D82F08B /* AppSession.swift */; };
 		C563EFC5898C76B6B5788BF9 /* PassageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22A08E4EEB84ADB7AEF3948C /* PassageCache.swift */; };
 		CA6CE84B897A517EA593BCAC /* PassageFetching.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12766575B60A50916369413F /* PassageFetching.swift */; };
 		D03C8FA68FEEC434CED670AE /* ContributionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3D9824C5A53067A8650F9B /* ContributionTests.swift */; };
+		D2D080C05F9C8746B3A91729 /* PaymentAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD0D35FCF6CFA360BD9BD67 /* PaymentAPI.swift */; };
 		D399A22AD229078C28ED522D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F9E9D768A9FEE3B9F94A48 /* ContentView.swift */; };
 		D4140E9D88870C9B2C0CEF67 /* ContributionCheckout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B5560D87A7A3BD7CB53EAE /* ContributionCheckout.swift */; };
 		D6092368C8BCCF9DA4CDD5B2 /* AnswerPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2AC7E4F78FAB891A2F7F175 /* AnswerPresentationTests.swift */; };
 		D7B31D14173207F2B3268AFB /* AnswerReveal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 748C2C1BE357B0378F4AB322 /* AnswerReveal.swift */; };
+		DDDCA8DCE571CA40C6F74E57 /* SessionRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB2E8F40BE01EE0FECED374D /* SessionRecoveryTests.swift */; };
 		E5502A5BDEDD555D3E64C6D4 /* AuthenticationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A6826BC44CE562B0C43418 /* AuthenticationTests.swift */; };
 		E75471EC48DBA83227CE4B29 /* AppleSignInAttempt.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF1CD0F0106DEC54DC1496A /* AppleSignInAttempt.swift */; };
 		F60CA3905DC62E68348F56AB /* VerseEmbeddingIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A5B4DF4BF8B9789121FE33A /* VerseEmbeddingIndex.swift */; };
@@ -111,13 +120,16 @@
 		382C18F3052B2CD52D6DA0DA /* ContributionWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionWizard.swift; sourceTree = "<group>"; };
 		3CBB4B318FBD5283ADFAA853 /* ProfilePhotoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePhotoPicker.swift; sourceTree = "<group>"; };
 		3D9F99CB01F9EB2DE956912D /* AnswerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerService.swift; sourceTree = "<group>"; };
+		4146D6DF904F4A17C6C2833F /* OwnerPaymentSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerPaymentSummary.swift; sourceTree = "<group>"; };
 		42A8A76AD6B3C94E99EA020E /* HomeVerses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeVerses.swift; sourceTree = "<group>"; };
 		474D9DFEE2C1C32645B14FFD /* ProxyAnswerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxyAnswerServiceTests.swift; sourceTree = "<group>"; };
 		47D80D12FBC9CD737224569D /* AnswerSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerSourceTests.swift; sourceTree = "<group>"; };
+		49E312EAA1A65A9C88509805 /* PendingAccountDeletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingAccountDeletion.swift; sourceTree = "<group>"; };
 		4DCD03E50C94ED9890B44D23 /* ContributionWizardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionWizardUITests.swift; sourceTree = "<group>"; };
 		50F9E9D768A9FEE3B9F94A48 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		53E43C370FC575EA43173BE7 /* ScriptureQuoterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureQuoterTests.swift; sourceTree = "<group>"; };
 		58677CA35904EF3DD718CEB9 /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
+		589E0E7053F678F9729D63CD /* ChatHaptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHaptics.swift; sourceTree = "<group>"; };
 		5D3D9824C5A53067A8650F9B /* ContributionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionTests.swift; sourceTree = "<group>"; };
 		5D93CA49C0F5BFAEC266FAB6 /* AuthenticationAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationAPI.swift; sourceTree = "<group>"; };
 		5D99BEB887ABD5358DBC6A7D /* Bible.sqlite */ = {isa = PBXFileReference; lastKnownFileType = file; path = Bible.sqlite; sourceTree = "<group>"; };
@@ -142,6 +154,7 @@
 		94A4899BAF0355A42B314C3F /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		95A6D333EECF9B535D82F08B /* AppSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSession.swift; sourceTree = "<group>"; };
 		9CD8508386109392C435F698 /* ContributionDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionDraft.swift; sourceTree = "<group>"; };
+		9FD0D35FCF6CFA360BD9BD67 /* PaymentAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentAPI.swift; sourceTree = "<group>"; };
 		9FD47208D6F92FF4AF597A5E /* ThinkingText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThinkingText.swift; sourceTree = "<group>"; };
 		A47B70E2094A72AF068F91ED /* AppleAuthorizationPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAuthorizationPresenter.swift; sourceTree = "<group>"; };
 		A533B296B7037816ADCD48B3 /* AuthenticationKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationKeychain.swift; sourceTree = "<group>"; };
@@ -151,16 +164,21 @@
 		C06F1B7ABF68A565C97201A0 /* ScriptureReferenceDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureReferenceDetector.swift; sourceTree = "<group>"; };
 		C2F930849D8FF6E1D5BFD006 /* MessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageView.swift; sourceTree = "<group>"; };
 		CC133F872A69C78C8CAF734F /* ESVPassageClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ESVPassageClient.swift; sourceTree = "<group>"; };
+		D73DE1814D841BC476DBDD2D /* ContributionPaymentSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionPaymentSheet.swift; sourceTree = "<group>"; };
 		D79D6434EAC2040B355589DB /* LocalConversationStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalConversationStorage.swift; sourceTree = "<group>"; };
 		D7D4974727B5957F3E6BCBCA /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		DB2E8F40BE01EE0FECED374D /* SessionRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRecoveryTests.swift; sourceTree = "<group>"; };
 		DDDEF1798B4FDC62DAAC205D /* ScriptureQuoter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureQuoter.swift; sourceTree = "<group>"; };
 		DF0112378E1C93B08CF2FEA8 /* UntitledFaith.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = UntitledFaith.entitlements; sourceTree = "<group>"; };
 		E16D0F2167CEB291BFDCAEB9 /* LegalDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalDocument.swift; sourceTree = "<group>"; };
 		E1A6826BC44CE562B0C43418 /* AuthenticationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationTests.swift; sourceTree = "<group>"; };
+		E33A835BC239DFBC0F7BCD17 /* StripeContributionCheckout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StripeContributionCheckout.swift; sourceTree = "<group>"; };
+		E3EC8B362BABD8B43FBFD0CC /* PaymentEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentEntry.swift; sourceTree = "<group>"; };
 		E498DDD2C8EE972A846BF661 /* AnswerMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerMarkdown.swift; sourceTree = "<group>"; };
 		E984DFE402146B364401EA4F /* ContributionAmountStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionAmountStep.swift; sourceTree = "<group>"; };
 		EB64D10446194B1281A683C6 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		ED90039EBEA8D03353F90B6F /* Untitled Faith.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "Untitled Faith.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EE8F7C9F6BD628CBDE4A778C /* OwnerPaymentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerPaymentsView.swift; sourceTree = "<group>"; };
 		EEF1CD0F0106DEC54DC1496A /* AppleSignInAttempt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInAttempt.swift; sourceTree = "<group>"; };
 		F2AC7E4F78FAB891A2F7F175 /* AnswerPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerPresentationTests.swift; sourceTree = "<group>"; };
 		F8EAF7118E65C73D20CEDE7E /* VerseCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerseCarousel.swift; sourceTree = "<group>"; };
@@ -228,11 +246,23 @@
 		48B96AE88D177D87A28D554E /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				EE8F7C9F6BD628CBDE4A778C /* OwnerPaymentsView.swift */,
+				E3EC8B362BABD8B43FBFD0CC /* PaymentEntry.swift */,
 				3CBB4B318FBD5283ADFAA853 /* ProfilePhotoPicker.swift */,
 				D7D4974727B5957F3E6BCBCA /* SettingsView.swift */,
 				8A4BB9D69D467109B5DCF046 /* UsageSection.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		67DFF6FB72BE9A248867B406 /* Payments */ = {
+			isa = PBXGroup;
+			children = (
+				4146D6DF904F4A17C6C2833F /* OwnerPaymentSummary.swift */,
+				9FD0D35FCF6CFA360BD9BD67 /* PaymentAPI.swift */,
+				E33A835BC239DFBC0F7BCD17 /* StripeContributionCheckout.swift */,
+			);
+			path = Payments;
 			sourceTree = "<group>";
 		};
 		6BE8E8E731543B9DB33C94D2 /* Untitled Faith */ = {
@@ -281,6 +311,7 @@
 				E498DDD2C8EE972A846BF661 /* AnswerMarkdown.swift */,
 				748C2C1BE357B0378F4AB322 /* AnswerReveal.swift */,
 				14688747FD961612CD10766D /* AnswerTextView.swift */,
+				589E0E7053F678F9729D63CD /* ChatHaptics.swift */,
 				58677CA35904EF3DD718CEB9 /* ChatStore.swift */,
 				EB64D10446194B1281A683C6 /* ChatView.swift */,
 				BBF446664D42B19C64610C32 /* ConversationHistoryView.swift */,
@@ -306,6 +337,7 @@
 				280A351DD07D1FBF809D8378 /* ProxyAnswerStreaming.swift */,
 				BE62FCEB985F0C0FC79207D7 /* Authentication */,
 				8CB2D0E578B13F8139BDDA8F /* Bible */,
+				67DFF6FB72BE9A248867B406 /* Payments */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -316,6 +348,7 @@
 				EEF1CD0F0106DEC54DC1496A /* AppleSignInAttempt.swift */,
 				5D93CA49C0F5BFAEC266FAB6 /* AuthenticationAPI.swift */,
 				A533B296B7037816ADCD48B3 /* AuthenticationKeychain.swift */,
+				49E312EAA1A65A9C88509805 /* PendingAccountDeletion.swift */,
 			);
 			path = Authentication;
 			sourceTree = "<group>";
@@ -334,6 +367,7 @@
 				474D9DFEE2C1C32645B14FFD /* ProxyAnswerServiceTests.swift */,
 				289053F41CEC7F3B3E13CB0A /* QuotationPresentationTests.swift */,
 				53E43C370FC575EA43173BE7 /* ScriptureQuoterTests.swift */,
+				DB2E8F40BE01EE0FECED374D /* SessionRecoveryTests.swift */,
 			);
 			path = "Untitled FaithTests";
 			sourceTree = "<group>";
@@ -344,6 +378,7 @@
 				E984DFE402146B364401EA4F /* ContributionAmountStep.swift */,
 				9CD8508386109392C435F698 /* ContributionDraft.swift */,
 				5DDEF0C3B4C4ABD01E88D2C2 /* ContributionNumberPad.swift */,
+				D73DE1814D841BC476DBDD2D /* ContributionPaymentSheet.swift */,
 				382C18F3052B2CD52D6DA0DA /* ContributionWizard.swift */,
 				6718FFAF4DD59D60A15B73FA /* DeveloperNoteDisclosure.swift */,
 				802B0EDB012565FA7B5DC306 /* DeveloperThanksStep.swift */,
@@ -453,7 +488,7 @@
 					19EDA5ACC646241EE4B026DB = {
 						DevelopmentTeam = BZT8F2M765;
 						ProvisioningStyle = Automatic;
-						SystemCapabilities = "[\"com.apple.SignInWithApple\": [\"enabled\": 1]]";
+						SystemCapabilities = "[\"com.apple.SignInWithApple\": [\"enabled\": 1], \"com.apple.AssociatedDomains\": [\"enabled\": 1]]";
 					};
 					7B726AADA9B03415A6B7B346 = {
 						TestTargetID = 19EDA5ACC646241EE4B026DB;
@@ -521,6 +556,7 @@
 				378CD8D6AC917581F377E7E1 /* ProxyAnswerServiceTests.swift in Sources */,
 				11DFFAD090F8AFDA150E7711 /* QuotationPresentationTests.swift in Sources */,
 				BB3E14064036A94B711B3F0E /* ScriptureQuoterTests.swift in Sources */,
+				DDDCA8DCE571CA40C6F74E57 /* SessionRecoveryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -545,6 +581,7 @@
 				230C13C4C309E0C1E1147774 /* BibleBook.swift in Sources */,
 				26F1380CFEA777C6DC723F8A /* BibleReference.swift in Sources */,
 				90A4553AE6606690C37C5A72 /* BibleStore.swift in Sources */,
+				B7FDCEF965E16A5EC30D56C7 /* ChatHaptics.swift in Sources */,
 				2DF8FA8E45421218E84D2ED1 /* ChatStore.swift in Sources */,
 				4FBCA33DB7709356C926A2DA /* ChatView.swift in Sources */,
 				D399A22AD229078C28ED522D /* ContentView.swift in Sources */,
@@ -552,6 +589,7 @@
 				D4140E9D88870C9B2C0CEF67 /* ContributionCheckout.swift in Sources */,
 				586AD0B30B5DA5E55A9D4584 /* ContributionDraft.swift in Sources */,
 				A3FA9993747EA180C2E1F011 /* ContributionNumberPad.swift in Sources */,
+				BF93541ADBAFBD31F58169DE /* ContributionPaymentSheet.swift in Sources */,
 				55451E77C62CD1FA5CC921B6 /* ContributionWizard.swift in Sources */,
 				32B09A5C716F8C5FF60D887F /* Conversation.swift in Sources */,
 				F69EBB61940FF26667F044D7 /* ConversationHistoryView.swift in Sources */,
@@ -564,8 +602,13 @@
 				1566243B15F710BD8CE03E6A /* LocalConversationStorage.swift in Sources */,
 				75D6B65771554022662456CB /* LocalProfilePhotoStorage.swift in Sources */,
 				07C208C92155AE6EA653CCFB /* MessageView.swift in Sources */,
+				7B1E75ECB180F8D14F34792B /* OwnerPaymentSummary.swift in Sources */,
+				69A8EF72995D7A3090AF1D50 /* OwnerPaymentsView.swift in Sources */,
 				C563EFC5898C76B6B5788BF9 /* PassageCache.swift in Sources */,
 				CA6CE84B897A517EA593BCAC /* PassageFetching.swift in Sources */,
+				D2D080C05F9C8746B3A91729 /* PaymentAPI.swift in Sources */,
+				56FE7D1A5366FD248525BA63 /* PaymentEntry.swift in Sources */,
+				1DCCAE02EC8D79DF24EE705E /* PendingAccountDeletion.swift in Sources */,
 				F8007613A4C1156BCEB437C5 /* ProfilePhotoPicker.swift in Sources */,
 				49335140092B9B6B40D6A7EF /* ProxyAnswerService.swift in Sources */,
 				081F9C2483F1B34AF48785BB /* ProxyAnswerStreaming.swift in Sources */,
@@ -574,6 +617,7 @@
 				AE87FB49A1BE69022A6CFAFC /* ScriptureReferenceDetector.swift in Sources */,
 				3FFC5D841938400F43E3C3B0 /* SettingsView.swift in Sources */,
 				6BF5F3979DBCB5687D5DDD65 /* SignInView.swift in Sources */,
+				1F1A651E017F18885185049E /* StripeContributionCheckout.swift in Sources */,
 				B4AB772357F442F8CD3DC926 /* ThinkingText.swift in Sources */,
 				BFE9EBE1BD9C6DEC401FAA1B /* UntitledFaithApp.swift in Sources */,
 				79FC53141EECB67753651C85 /* UsageSection.swift in Sources */,
@@ -606,7 +650,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Untitled Faith/UntitledFaith.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = BZT8F2M765;
 				FAITH_API_BASE_URL = "https://untitled-faith-proxy.vendors-c0f.workers.dev";
 				GENERATE_INFOPLIST_FILE = YES;
@@ -619,7 +663,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.5;
+				MARKETING_VERSION = 1.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lukefournier.UntitledFaith;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -635,7 +679,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Untitled Faith/UntitledFaith.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = BZT8F2M765;
 				FAITH_API_BASE_URL = "https://untitled-faith-proxy.vendors-c0f.workers.dev";
 				GENERATE_INFOPLIST_FILE = YES;
@@ -648,7 +692,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.5;
+				MARKETING_VERSION = 1.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lukefournier.UntitledFaith;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;

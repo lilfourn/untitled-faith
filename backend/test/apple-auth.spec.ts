@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { base64url, EncryptJWT, exportJWK, exportPKCS8, generateKeyPair, jwtDecrypt, jwtVerify, SignJWT } from "jose";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../src/index";
+import { finishAccountDeletions } from "../src/accounts";
 
 const nonce = "a".repeat(64);
 const appleSubject = "001234.example-apple-user";
@@ -219,4 +220,67 @@ describe("Apple authentication", () => {
     })).status).toBe(429);
     expect(upstream).not.toHaveBeenCalled();
   });
+});
+
+
+it("treats Apple key-server failure as temporary rather than invalid credentials", async () => {
+  upstream.mockRejectedValue(new TypeError("Network unavailable"));
+  const response = await worker.fetch(request("apple", exchangeBody()), authenticationEnv);
+  expect(response.status).toBe(502);
+  expect(await response.json()).toMatchObject({ error: { code: "apple_unavailable" } });
+  expect(await env.DB.prepare("SELECT id FROM users").first()).toBeNull();
+});
+
+it("replays a lost deletion response without revoking again or deleting a new account", async () => {
+  const original = await signIn();
+  upstream.mockClear();
+  expect((await worker.fetch(request("revoke", { refreshToken: original.refreshToken }), authenticationEnv)).status).toBe(200);
+  expect((await worker.fetch(request("revoke", { refreshToken: original.refreshToken }), authenticationEnv)).status).toBe(200);
+  expect(upstream).toHaveBeenCalledTimes(1);
+  codeUsed = false;
+  await signIn();
+  const recreated = await env.DB.prepare("SELECT id FROM users").first();
+  expect((await worker.fetch(request("revoke", { refreshToken: original.refreshToken }), authenticationEnv)).status).toBe(200);
+  expect(await env.DB.prepare("SELECT id FROM users").first()).toEqual(recreated);
+});
+
+it("retains a deletion intent through a temporary Apple revoke failure and completes on retry", async () => {
+  const original = await signIn();
+  upstream.mockResolvedValueOnce(new Response(null, { status: 503 }));
+  expect((await worker.fetch(request("revoke", { refreshToken: original.refreshToken }), authenticationEnv)).status).toBe(502);
+  expect((await env.DB.prepare("SELECT deleting_at FROM users").first())?.deleting_at).toEqual(expect.any(Number));
+  expect((await worker.fetch(request("refresh", { refreshToken: original.refreshToken }), authenticationEnv)).status).toBe(401);
+  expect((await worker.fetch(request("revoke", { refreshToken: original.refreshToken }), authenticationEnv)).status).toBe(200);
+  expect(await env.DB.prepare("SELECT id FROM users").first()).toBeNull();
+});
+
+it("recovers database deletion after Apple revocation succeeded but final cleanup failed", async () => {
+  const original = await signIn();
+  const failingDB = new Proxy(env.DB, {
+    get(target, property) {
+      if (property === 'prepare') return (sql: string) => {
+        const statement = target.prepare(sql);
+        if (!sql.startsWith('DELETE FROM users')) return statement;
+        const failingStatement: D1PreparedStatement = new Proxy(statement, {
+          get(value, key) {
+            if (key === 'bind') return () => failingStatement;
+            if (key === 'first') return async () => { throw new Error('Database unavailable'); };
+            const member = Reflect.get(value, key);
+            return typeof member === 'function' ? member.bind(value) : member;
+          },
+        });
+        return failingStatement;
+      };
+      const member = Reflect.get(target, property);
+      return typeof member === 'function' ? member.bind(target) : member;
+    },
+  });
+  const response = await worker.fetch(request("revoke", { refreshToken: original.refreshToken }), { ...authenticationEnv, DB: failingDB });
+  expect(response.status).toBe(500);
+  expect((await env.DB.prepare("SELECT apple_revoked_at FROM users").first())?.apple_revoked_at).toEqual(expect.any(Number));
+  upstream.mockClear();
+  await finishAccountDeletions(env.DB);
+  expect(await env.DB.prepare("SELECT id FROM users").first()).toBeNull();
+  expect((await worker.fetch(request("revoke", { refreshToken: original.refreshToken }), authenticationEnv)).status).toBe(200);
+  expect(upstream).not.toHaveBeenCalled();
 });

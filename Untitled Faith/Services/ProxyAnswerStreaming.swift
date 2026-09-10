@@ -77,6 +77,7 @@ struct AnswerEventParser {
         case "error":
             if event.error?.status == 429 { throw AnswerServiceError.rateLimited }
             switch event.error?.code {
+            case "invalid_answer_format": throw AnswerServiceError.invalidResponse
             case "sources_unavailable": throw AnswerServiceError.sourcesUnavailable
             case "rate_limited": throw AnswerServiceError.rateLimited
             case "answer_timeout": throw AnswerServiceError.timedOut

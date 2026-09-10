@@ -79,7 +79,7 @@ for (const [index, test] of cases.entries()) {
       }
       const result = moderatedAnswer(content);
       actual = result.decision;
-      if (result.generated) sources.finish(result.text);
+      if (result.generated) sources.resolve(result.text);
     }
   } catch (failure) {
     // Never print generated content, provider error bodies, or credentials.

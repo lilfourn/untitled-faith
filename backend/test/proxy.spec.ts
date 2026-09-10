@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../src/index";
 import { CONSENT_VERSION, MAX_REQUEST_BYTES } from "../src/contract";
 import { generateAnswer } from "../src/openrouter";
+import { reserveUsage } from "../src/usage";
 import { accountForIdentity } from "../src/accounts";
 
 const testEnv = env as Env;
@@ -162,4 +163,30 @@ describe("answer proxy", () => {
     await expect(generateAnswer([{ role: "user", content: "Hello" }], "test", "opaque", signal))
       .rejects.toMatchObject({ status: 504, code: "answer_timeout" });
   });
+});
+
+
+it("returns only the signed-in account's request status without inference", async () => {
+  const bearer = await token();
+  const account = await env.DB.prepare('SELECT id FROM users').first<{ id: string }>();
+  const key = crypto.randomUUID();
+  await reserveUsage(env.DB, account!.id, key, 10000);
+  const lookup = (credential?: string) => worker.fetch(new Request(`https://proxy.example/v1/answers/status/${key}`,
+    { headers: credential ? { Authorization: `Bearer ${credential}` } : {} }), testEnv);
+  expect(await (await lookup(bearer)).json()).toEqual({ status: 'reserved' });
+  expect(await (await lookup(await token())).json()).toEqual({ status: 'not_found' });
+  expect((await lookup()).status).toBe(401);
+  expect(upstream).not.toHaveBeenCalled();
+});
+
+it("checks readiness without inference and reports missing configuration", async () => {
+  const bearer = await token();
+  const readyRequest = () => new Request('https://proxy.example/v1/readiness', { headers: { Authorization: `Bearer ${bearer}` } });
+  const configured = { ...testEnv, APPLE_CLIENT_ID: 'test-app', APPLE_TEAM_ID: 'test-team', APPLE_KEY_ID: 'test-key',
+    APPLE_PRIVATE_KEY: 'test-only-private-key', SESSION_ENCRYPTION_KEY: 'test-only-encryption-key' };
+  expect(await (await worker.fetch(readyRequest(), configured)).json()).toEqual({ status: 'ready', recoverySchema: 7 });
+  const unavailable = await worker.fetch(readyRequest(), { ...configured, OPENROUTER_API_KEY: '' });
+  expect(unavailable.status).toBe(503);
+  expect(unavailable.headers.get('X-Request-ID')).toBeTruthy();
+  expect(upstream).not.toHaveBeenCalled();
 });

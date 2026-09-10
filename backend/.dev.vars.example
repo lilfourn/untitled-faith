@@ -9,3 +9,10 @@ APPLE_PRIVATE_KEY=""
 # Optional. Crossway ESV API key (https://api.esv.org) for exact ESV passages in citation cards.
 # Without it the app quotes the bundled Berean Standard Bible instead.
 ESV_API_KEY=""
+
+# Optional payments. Use a SEPARATE Untitled Faith Stripe account, never Gridbloom's credentials.
+# Production remains disabled until the account/webhook and real test purchase are verified.
+STRIPE_SECRET_KEY=""
+STRIPE_WEBHOOK_SECRET=""
+# Verified app account UUID for the owner-only payment overview (not a Stripe account ID).
+PAYMENT_OWNER_ACCOUNT_ID=""

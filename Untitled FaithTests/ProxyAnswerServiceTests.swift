@@ -16,6 +16,18 @@ final class ProxyAnswerServiceTests: XCTestCase {
                                   accessToken: { token }, hasConsent: { consent }, session: URLSession(configuration: config))
     }
 
+    func testRetryStatusIsReadOnlyAndDoesNotSendConversationContent() async throws {
+        let messageID = UUID()
+        let client = service(body: #"{"status":"reserved"}"#) { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/v1/answers/status/\(messageID.uuidString)")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-session")
+            XCTAssertNil(request.httpBody)
+        }
+        let status = try await client.requestStatus(for: messageID)
+        XCTAssertEqual(status, .reserved)
+    }
+
     func testSendsOnlyConversationAndConsentToProxy() async throws {
         let client = service { request in
             XCTAssertEqual(request.url?.host, "proxy.example")

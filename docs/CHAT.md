@@ -215,3 +215,15 @@ sign-in, foregrounding, answer completion or failure, and contribution-sheet dis
 while active. Reopening Settings preserves the bar instead of replacing it with a loading indicator.
 Account changes cancel outstanding work and prevent late responses from replacing the new account's
 value. See [TestFlight verification and limitations](TESTFLIGHT.md#usage-display-update-105).
+
+## Chat haptics
+
+Accepted sends and retries produce a light tap. The formatted answer reveal produces softer pulses
+at least 120 ms apart, driven by visible progress. Feedback pauses while the app is inactive or a chat
+sheet/alert is open. Completion and cancellation do not trigger a send tap. Reduce Motion and VoiceOver
+already skip the reveal, so they also skip its repeated pulses. Contribution amount entry and the
+developer-share slider retain their existing selection feedback.
+
+`./scripts/dev build` passed with Apple sign-in and Keychain signing verification
+(`.dev/logs/build-Debug-20260909-235823-55305.log`). No iOS tests or simulator UI automation were run.
+Haptic feel still needs manual verification on an iPhone.

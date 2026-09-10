@@ -1,12 +1,20 @@
 import Foundation
 
+enum AnswerAttemptStatus: String, Decodable {
+    case reserved, settled, released, uncertain
+    case notFound = "not_found"
+}
+
 protocol AnswerService {
+    func requestStatus(for messageID: UUID) async throws -> AnswerAttemptStatus
     func answer(for messages: [ChatMessage]) async throws -> FaithAnswer
     func streamAnswer(for messages: [ChatMessage],
                       onUpdate: @escaping @MainActor (String) -> Void) async throws -> FaithAnswer
 }
 
 extension AnswerService {
+    func requestStatus(for messageID: UUID) async throws -> AnswerAttemptStatus { .notFound }
+
     func streamAnswer(for messages: [ChatMessage],
                       onUpdate: @escaping @MainActor (String) -> Void) async throws -> FaithAnswer {
         let result = try await answer(for: messages)

@@ -12,6 +12,8 @@ struct ChatView: View {
     @State private var followingAnswer = true
     @FocusState private var composerFocused: Bool
     @State private var sendTask: Task<Void, Never>?
+    @State private var confirmingDiscard = false
+    @State private var confirmingRetry = false
 
     private let suggestions = [
         Suggestion(title: "Read the Bible", detail: "how do I begin?", question: "How can I begin reading the Bible?"),
@@ -48,13 +50,21 @@ struct ChatView: View {
                                 .accessibilityIdentifier("chat-service-notice")
                         }
                         if store.canRetry {
-                            Button("Retry answer", systemImage: "arrow.clockwise") { sendQuestion(retrying: true) }
+                            Button("Retry answer", systemImage: "arrow.clockwise") {
+                                Task { if await store.checkRetry() { confirmingRetry = true } }
+                            }
                                 .accessibilityIdentifier("retry-answer")
                         }
+                        if store.isCheckingRetry { ProgressView("Checking previous request…") }
                         if let error = store.storageError {
                             Label(error, systemImage: "exclamationmark.triangle")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
+                        }
+                        if store.hasUnsavedChanges {
+                            Button("Retry saving") { store.retrySave() }
+                            Button("Discard unsaved changes", role: .destructive) { confirmingDiscard = true }
+                                .disabled(store.isSending)
                         }
                         Color.clear.frame(height: 1).id("bottom")
                     }
@@ -97,6 +107,8 @@ struct ChatView: View {
                 }
             }
             .background(AppTheme.background)
+            .modifier(ChatHaptics(isSending: store.isSending, revealProgress: store.revealProgress,
+                                  isVisible: !showingSettings && !showingHistory && !showingPhotoLoadError))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if #available(iOS 26.0, *) {
@@ -132,7 +144,17 @@ struct ChatView: View {
                 SettingsView(session: session, profilePhoto: $profilePhoto, beforeAccountDeletion: {
                     sendTask?.cancel()
                     await sendTask?.value
+                }, beforeSignOut: {
+                    sendTask?.cancel()
+                    await sendTask?.value
+                    return store.ensureSaved()
                 })
+            }
+            .confirmationDialog("Generate another answer? The earlier attempt may already have used allowance. This starts a new request.", isPresented: $confirmingRetry, titleVisibility: .visible) {
+                Button("Generate another answer") { sendQuestion(retrying: true) }
+            }
+            .confirmationDialog("Discard the changes that could not be saved?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
+                Button("Discard unsaved changes", role: .destructive) { store.discardUnsavedChanges() }
             }
             .onChange(of: store.isSending) {
                 if !store.isSending { session.refreshUsage(force: true) }

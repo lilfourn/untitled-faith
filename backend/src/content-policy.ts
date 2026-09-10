@@ -65,8 +65,15 @@ function normalizeEnvelopeWhitespace(content: string): { json: string; stringCou
   return { json: result, stringCount };
 }
 
+export class AnswerValidationError extends APIError {
+  constructor(readonly reason: 'encoded_length' | 'string_count' | 'invalid_json' | 'fields' | 'answer_length' | 'empty_answer' | 'decision') {
+    super(502, 'invalid_answer_format');
+    this.name = 'AnswerValidationError';
+  }
+}
+
 export function moderatedAnswer(content: string): { text: string; generated: boolean; decision: 'answer' | 'off_topic' | 'unsafe' | 'crisis' } {
-  if (content.length > MAX_MODERATED_CONTENT_LENGTH) throw new APIError(502, 'answer_unavailable');
+  if (content.length > MAX_MODERATED_CONTENT_LENGTH) throw new AnswerValidationError('encoded_length');
   // Some eligible endpoints wrap structured output in one JSON fence. Accept only
   // that exact whole-response wrapper; never extract JSON from surrounding prose.
   const trimmed = content.trim();
@@ -74,21 +81,21 @@ export function moderatedAnswer(content: string): { text: string; generated: boo
   const normalized = normalizeEnvelopeWhitespace(fenced ? fenced[1]! : trimmed);
   // This schema has exactly two string keys and two string values. Reject extra
   // tokens before JSON.parse can silently collapse duplicate/conflicting keys.
-  if (normalized.stringCount !== 4) throw new APIError(502, 'answer_unavailable');
+  if (normalized.stringCount !== 4) throw new AnswerValidationError('string_count');
   let value: unknown;
   try { value = JSON.parse(normalized.json); }
-  catch { throw new APIError(502, 'answer_unavailable'); }
-  if (!isRecord(value) || Object.keys(value).length !== 2 || typeof value.answer !== 'string' ||
-      value.answer.length > MAX_ANSWER_LENGTH) throw new APIError(502, 'answer_unavailable');
+  catch { throw new AnswerValidationError('invalid_json'); }
+  if (!isRecord(value) || Object.keys(value).length !== 2 || typeof value.answer !== 'string') throw new AnswerValidationError('fields');
+  if (value.answer.length > MAX_ANSWER_LENGTH) throw new AnswerValidationError('answer_length');
   switch (value.decision) {
     case 'answer':
-      if (!value.answer.trim()) throw new APIError(502, 'answer_unavailable');
+      if (!value.answer.trim()) throw new AnswerValidationError('empty_answer');
       return { text: value.answer.trim(), generated: true, decision: value.decision };
     case 'off_topic': case 'unsafe': case 'crisis':
       // Discard ALL generated text for these decisions, even if the model ignored the empty-string rule.
       return { text: POLICY_RESPONSES[value.decision], generated: false, decision: value.decision };
     default:
       // No raw-text fallback when moderation is missing, malformed, or unknown.
-      throw new APIError(502, 'answer_unavailable');
+      throw new AnswerValidationError('decision');
   }
 }

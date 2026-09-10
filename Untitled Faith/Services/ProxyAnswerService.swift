@@ -36,10 +36,31 @@ struct ProxyAnswerService: AnswerService {
         }
     }
 
+    func requestStatus(for messageID: UUID) async throws -> AnswerAttemptStatus {
+        guard AuthenticationAPI.isSecureBaseURL(endpoint) else { throw AnswerServiceError.invalidConfiguration }
+        let token = try await accessToken()
+        guard !token.isEmpty else { throw AnswerServiceError.signInRequired }
+        var request = URLRequest(url: endpoint.appendingPathComponent("status").appendingPathComponent(messageID.uuidString))
+        request.timeoutInterval = 10
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await session.data(for: request)
+        try Task.checkCancellation()
+        guard let http = response as? HTTPURLResponse else { throw AnswerServiceError.unavailable }
+        guard http.statusCode == 200 else { throw Self.failure(status: http.statusCode, data: data) }
+        struct Status: Decodable { let status: AnswerAttemptStatus }
+        guard data.count <= 4096, let status = try? JSONDecoder().decode(Status.self, from: data) else {
+            throw AnswerServiceError.invalidResponse
+        }
+        return status.status
+    }
+
     static func failure(status: Int, data: Data? = nil) -> AnswerServiceError {
         let code = data.flatMap { data in
             data.count <= 16 * 1024 ? (try? JSONDecoder().decode(FailureResponse.self, from: data))?.error.code : nil
         }
+        if code == "invalid_answer_format" { return .invalidResponse }
         switch status {
         case 401: return .signInRequired
         case 402:

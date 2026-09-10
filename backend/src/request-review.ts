@@ -62,6 +62,9 @@ export async function reviewRequest(messages: Message[], apiKey: string, userID:
 
 export async function reviewedAnswer(db: D1Database, reservationID: string, messages: Message[], apiKey: string,
   userID: string, signal: AbortSignal, generate: () => Promise<AnswerGeneration>, allowFallback = true): Promise<AnswerGeneration> {
+  if (signal.aborted) throw new InferenceError(504, 'answer_timeout', 'unbilled');
+  await db.prepare("UPDATE usage_requests SET inference_stage = 'review', updated_at = ? WHERE id = ? AND status = 'reserved'")
+    .bind(Date.now(), reservationID).run();
   const review = await reviewRequest(messages, apiKey, userID, signal, async id => {
     await db.prepare("UPDATE usage_requests SET generation_id = ? WHERE id = ? AND status = 'reserved'").bind(id, reservationID).run();
   }, allowFallback);
@@ -69,7 +72,7 @@ export async function reviewedAnswer(db: D1Database, reservationID: string, mess
   // Checkpoint the first call before starting another. Settlement and reconciliation
   // add these costs exactly once; generation_id now belongs to the answer call.
   await db.prepare(`UPDATE usage_requests SET review_cost_micros = ?, review_prompt_tokens = ?,
-    review_completion_tokens = ?, generation_id = NULL, updated_at = ? WHERE id = ? AND status = 'reserved'`)
+    review_completion_tokens = ?, generation_id = NULL, inference_stage = 'answer', updated_at = ? WHERE id = ? AND status = 'reserved'`)
     .bind(review.usage.costMicros, review.usage.promptTokens, review.usage.completionTokens, Date.now(), reservationID).run();
   if (signal.aborted) throw new InferenceError(504, 'answer_timeout', { costMicros: 0, promptTokens: 0, completionTokens: 0 });
   return generate();

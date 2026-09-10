@@ -16,14 +16,20 @@ final class AppSession {
     let accountUsage: AccountUsageStore
     private let preferences: UserDefaults
     private let usageService: AccountUsageService?
-    private let keychain = AuthenticationKeychain()
+    private let keychain: any SecureRecordStorage<StoredAuthentication>
+    private let deletionStorage: any SecureRecordStorage<PendingAccountDeletion>
+    private let api: AuthenticationAPI?
+    private let storageRoot: URL
+    private let credentialState: (String) async throws -> ASAuthorizationAppleIDProvider.CredentialState
+    private(set) var canRetryRestoration = false
+    private(set) var hasPendingDeletion = false
     private var attempt: AppleSignInAttempt?
     private var generation = UUID()
     private var didRestore = false
     @ObservationIgnored private var refreshTask: Task<AuthenticationTokens, Error>?
 
     var isSignedIn: Bool { authentication != nil }
-    var canSignIn: Bool { AuthenticationAPI.configured() != nil && !isSigningIn && !isRestoring }
+    var canSignIn: Bool { api != nil && !isSigningIn && !isRestoring && !hasPendingDeletion }
 
     func refreshUsage(force: Bool = false) {
         guard isSignedIn, !isPreview, !isDeletingAccount else { return }
@@ -40,16 +46,16 @@ final class AppSession {
     }
 
     func makeConversationStorage() -> LocalConversationStorage {
-        LocalConversationStorage(namespace: localStorageNamespace)
+        LocalConversationStorage(namespace: localStorageNamespace, root: storageRoot)
     }
 
     func makeProfilePhotoStorage() -> LocalProfilePhotoStorage {
-        LocalProfilePhotoStorage(namespace: localStorageNamespace)
+        LocalProfilePhotoStorage(namespace: localStorageNamespace, root: storageRoot)
     }
 
     private var localStorageNamespace: String {
         let identity = authentication?.appleUserID ?? "development-preview"
-        let backend = authentication?.apiBaseURL.absoluteString ?? AuthenticationAPI.configured()?.baseURL.absoluteString ?? "preview"
+        let backend = authentication?.apiBaseURL.absoluteString ?? api?.baseURL.absoluteString ?? "preview"
         return backend + "|" + identity
     }
 
@@ -58,7 +64,7 @@ final class AppSession {
         #if DEBUG
         endpoint = ProcessInfo.processInfo.environment["FAITH_PROXY_URL"] ?? endpoint
         #endif
-        let url = endpoint.flatMap { $0.isEmpty ? nil : URL(string: $0) } ?? AuthenticationAPI.configured()?.baseURL.appendingPathComponent("v1/answers")
+        let url = endpoint.flatMap { $0.isEmpty ? nil : URL(string: $0) } ?? api?.baseURL.appendingPathComponent("v1/answers")
         guard let url else {
             return UnconfiguredAnswerService()
         }
@@ -71,7 +77,7 @@ final class AppSession {
     /// Verse cards: ESV through the backend when configured, cached on device within Crossway's limits,
     /// with the bundled public-domain translation as the offline fallback.
     func makeScriptureQuoter() -> ScriptureQuoter {
-        let service = AuthenticationAPI.configured().map { api in
+        let service = api.map { api in
             ESVPassageClient(endpoint: api.baseURL.appendingPathComponent("v1/passages"), accessToken: { [weak self] in
                 guard let self else { throw AnswerServiceError.signInRequired }
                 return try await self.proxyAccessToken()
@@ -91,17 +97,33 @@ final class AppSession {
         return try await validAccessToken()
     }
 
-    init(preferences: UserDefaults = .standard) {
+    init(preferences: UserDefaults = .standard, api: AuthenticationAPI? = .configured(),
+         keychain: any SecureRecordStorage<StoredAuthentication> = AuthenticationKeychain(),
+         storageRoot: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0],
+         deletionStorage: any SecureRecordStorage<PendingAccountDeletion> = KeychainRecord<PendingAccountDeletion>(service: "com.lukefournier.UntitledFaith.pending-deletion"),
+         credentialState: @escaping (String) async throws -> ASAuthorizationAppleIDProvider.CredentialState = {
+             try await ASAuthorizationAppleIDProvider().credentialState(forUserID: $0)
+         }) {
         self.preferences = preferences
+        self.api = api
+        self.storageRoot = storageRoot
+        self.keychain = keychain
+        self.deletionStorage = deletionStorage
+        self.credentialState = credentialState
         accountUsage = AccountUsageStore(preferences: preferences)
-        usageService = AuthenticationAPI.configured().map { AccountUsageService(baseURL: $0.baseURL) }
+        usageService = api.map { AccountUsageService(baseURL: $0.baseURL, session: $0.session) }
         aiSharingAllowed = preferences.object(forKey: "aiAnswersEnabled") as? Bool ?? true
         #if DEBUG
         isPreview = ProcessInfo.processInfo.arguments.contains("--preview-chat")
         #endif
+        if !isPreview {
+            do { hasPendingDeletion = try deletionStorage.load() != nil }
+            catch { hasPendingDeletion = true; canRetryRestoration = true }
+        }
     }
 
     func prepareAppleAuthorization(_ request: ASAuthorizationAppleIDRequest) {
+        guard canSignIn else { return }
         signInError = nil
         do {
             let attempt = try AppleSignInAttempt()
@@ -124,13 +146,15 @@ final class AppSession {
                 defer { if generation == currentGeneration { isSigningIn = false } }
                 do {
                     guard let currentAttempt else { throw AuthenticationError.invalidCredential }
-                    guard let api = AuthenticationAPI.configured() else { throw AuthenticationError.notConfigured }
+                    guard let api else { throw AuthenticationError.notConfigured }
                     let credentials = try currentAttempt.credentials(from: authorization)
                     let tokens = try await api.exchange(credentials.request)
                     guard generation == currentGeneration else { return }
                     let stored = StoredAuthentication(appleUserID: credentials.userID, apiBaseURL: api.baseURL, tokens: tokens)
                     try keychain.save(stored)
                     authentication = stored
+                    canRetryRestoration = false
+                    didRestore = true
                     isPreview = false
                     accountUsage.activate(namespace: localStorageNamespace)
                     refreshUsage(force: true)
@@ -146,23 +170,35 @@ final class AppSession {
         }
     }
 
-    func restoreSession() async {
-        guard !didRestore else { return }
+    func restoreSession(retry: Bool = false) async {
+        guard !isRestoring, !isSigningIn, !isDeletingAccount,
+              !didRestore || (retry && canRetryRestoration) else { return }
+        guard !isPreview, let api else { return }
         didRestore = true
-        guard !isPreview, let api = AuthenticationAPI.configured() else { return }
         isRestoring = true
+        canRetryRestoration = false
+        signInError = nil
         defer { isRestoring = false }
-        let currentGeneration = generation
+        var currentGeneration = generation
         do {
+            hasPendingDeletion = try deletionStorage.load() != nil
+            if hasPendingDeletion {
+                await resumeAccountDeletion()
+                guard !hasPendingDeletion else { return }
+                currentGeneration = generation
+                didRestore = true
+            }
             guard let stored = try keychain.load() else { return }
             guard stored.apiBaseURL == api.baseURL, !stored.tokens.isExpired else {
                 try keychain.clear()
                 return
             }
-            let state = try await ASAuthorizationAppleIDProvider().credentialState(forUserID: stored.appleUserID)
+            let state = try await credentialState(stored.appleUserID)
             guard generation == currentGeneration else { return }
             guard state == .authorized else {
                 try keychain.clear()
+                authentication = nil
+                accountUsage.clear()
                 return
             }
             authentication = stored
@@ -171,17 +207,32 @@ final class AppSession {
             refreshUsage(force: true)
         } catch {
             guard generation == currentGeneration else { return }
-            authentication = nil
-            accountUsage.clear()
+            // Keep the Keychain record and any already-validated local account on transient failure.
+            canRetryRestoration = true
             signInError = error.localizedDescription
         }
+    }
+
+    func becameActive() async {
+        if hasPendingDeletion {
+            await resumeAccountDeletion()
+            guard !hasPendingDeletion else { return }
+        }
+        await restoreSession(retry: true)
+        await checkAppleCredential()
+        refreshUsage(force: true)
+    }
+
+    func handleCredentialRevocation() {
+        // Apple's notification can arrive before our deletion response. Preserve that workflow.
+        if !hasPendingDeletion { signOut() }
     }
 
     func checkAppleCredential() async {
         guard let stored = authentication else { return }
         let currentGeneration = generation
         do {
-            let state = try await ASAuthorizationAppleIDProvider().credentialState(forUserID: stored.appleUserID)
+            let state = try await credentialState(stored.appleUserID)
             guard generation == currentGeneration else { return }
             if state != .authorized { signOut() }
         } catch {
@@ -190,13 +241,13 @@ final class AppSession {
     }
 
     private func validAccessToken() async throws -> String {
-        guard var stored = authentication else { throw AnswerServiceError.signInRequired }
+        guard !hasPendingDeletion, var stored = authentication else { throw AnswerServiceError.signInRequired }
         guard !stored.tokens.isExpired else {
             signOut()
             throw AnswerServiceError.signInRequired
         }
         if !stored.tokens.needsRefresh { return stored.tokens.accessToken }
-        guard let api = AuthenticationAPI.configured(), api.baseURL == stored.apiBaseURL else {
+        guard let api, api.baseURL == stored.apiBaseURL else {
             throw AuthenticationError.notConfigured
         }
         let currentGeneration = generation
@@ -220,7 +271,15 @@ final class AppSession {
     }
 
     func signOut() {
+        resetSessionState()
+        do { try keychain.clear() }
+        catch { signInError = error.localizedDescription }
+    }
+
+    private func resetSessionState() {
         generation = UUID()
+        didRestore = true
+        canRetryRestoration = false
         accountUsage.clear()
         refreshTask?.cancel()
         refreshTask = nil
@@ -228,28 +287,67 @@ final class AppSession {
         isSigningIn = false
         authentication = nil
         isPreview = false
-        do { try keychain.clear() }
-        catch { signInError = error.localizedDescription }
     }
 
     func deleteAccount() async {
-        guard let stored = authentication, let api = AuthenticationAPI.configured(),
-              stored.apiBaseURL == api.baseURL, !isDeletingAccount else { return }
+        guard !isDeletingAccount else { return }
+        do {
+            if try deletionStorage.load() == nil {
+                guard let stored = authentication, let api, stored.apiBaseURL == api.baseURL else { return }
+                // Persist authorization before making any destructive network call.
+                try deletionStorage.save(PendingAccountDeletion(authentication: stored))
+            }
+            hasPendingDeletion = true
+            await resumeAccountDeletion()
+        } catch { signInError = error.localizedDescription }
+    }
+
+    func resumeAccountDeletion() async {
+        guard !isDeletingAccount else { return }
         isDeletingAccount = true
-        let currentGeneration = generation
         defer { isDeletingAccount = false }
         do {
-            try await api.revoke(stored.tokens.refreshToken)
-            guard generation == currentGeneration else { return }
-            do { try makeConversationStorage().deleteAll() }
-            catch { signInError = "Your account was deleted, but saved conversations couldn’t be removed from this device. Removing the app will clear its local data." }
-            do { try makeProfilePhotoStorage().delete() }
-            catch { signInError = "Your account was deleted, but some saved data couldn’t be removed from this device. Removing the app will clear its local data." }
-            accountUsage.clear(removeCached: true)
-            signOut()
+            guard var pending = try deletionStorage.load() else {
+                hasPendingDeletion = false
+                return
+            }
+            hasPendingDeletion = true
+            guard let api, pending.authentication.apiBaseURL == api.baseURL else { throw AuthenticationError.notConfigured }
+            if !pending.serverConfirmed {
+                try await api.revoke(pending.authentication.tokens.refreshToken)
+                pending.serverConfirmed = true
+                try deletionStorage.save(pending)
+            }
+            // All cleanup operations are repeatable and scoped to the original account.
+            try LocalConversationStorage(namespace: pending.namespace, root: storageRoot).deleteAll()
+            try LocalProfilePhotoStorage(namespace: pending.namespace, root: storageRoot).delete()
+            AccountUsageStore.removeCache(namespace: pending.namespace, preferences: preferences)
+            let current = try keychain.load()
+            if current?.appleUserID == pending.authentication.appleUserID && current?.apiBaseURL == pending.authentication.apiBaseURL {
+                try keychain.clear()
+            }
+            try deletionStorage.clear()
+            hasPendingDeletion = false
+            if authentication == nil || (authentication?.appleUserID == pending.authentication.appleUserID &&
+                authentication?.apiBaseURL == pending.authentication.apiBaseURL) {
+                resetSessionState()
+                didRestore = false
+            }
+            signInError = nil
         } catch {
-            if generation == currentGeneration { signInError = error.localizedDescription }
+            signInError = "Account deletion is not finished. Retry to complete it. " + error.localizedDescription
         }
+    }
+
+    func makePaymentAPI() -> PaymentAPI? {
+        guard let api, isSignedIn, !isPreview, !hasPendingDeletion else { return nil }
+        let currentGeneration = generation
+        return PaymentAPI(baseURL: api.baseURL, accessToken: { [weak self] in
+            guard let self, self.generation == currentGeneration, !self.hasPendingDeletion else { throw CancellationError() }
+            return try await self.validAccessToken()
+        }, isCurrentSession: { [weak self] in
+            self?.generation == currentGeneration && self?.isSignedIn == true && self?.hasPendingDeletion == false
+        }, session: api.session)
     }
 
     func endPreview() {

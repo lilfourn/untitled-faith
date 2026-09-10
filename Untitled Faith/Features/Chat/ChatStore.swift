@@ -15,6 +15,9 @@ final class ChatStore {
     var draft = ""
     var errorMessage: String?
     var storageError: String?
+    private(set) var isCheckingRetry = false
+    private(set) var hasUnsavedChanges = false
+    private var savedConversation: Conversation?
     private let service: any AnswerService
     private let storage: LocalConversationStorage?
     private let quoter: ScriptureQuoter?
@@ -31,8 +34,26 @@ final class ChatStore {
     }
 
     var canRetry: Bool {
-        guard !isSending, case .question? = conversation.messages.last else { return false }
+        guard !isSending, !isCheckingRetry, case .question? = conversation.messages.last else { return false }
         return true
+    }
+
+    func checkRetry() async -> Bool {
+        guard canRetry, let messageID = conversation.messages.last?.id else { return false }
+        isCheckingRetry = true
+        defer { isCheckingRetry = false }
+        do {
+            let status = try await service.requestStatus(for: messageID)
+            guard !Task.isCancelled, !isSending, conversation.messages.last?.id == messageID else { return false }
+            if status == .reserved {
+                errorMessage = "Your previous request is still processing. Wait before starting another answer."
+                return false
+            }
+            return true
+        } catch {
+            errorMessage = error is AnswerServiceError ? error.localizedDescription : "We couldn’t check the previous request. Please reconnect and try again."
+            return false
+        }
     }
 
     func updateDraft(_ text: String, revision: UUID) {
@@ -70,6 +91,8 @@ final class ChatStore {
             return nil
         }
         conversation = next
+        savedConversation = next
+        hasUnsavedChanges = false
         if !retrying {
             draft = ""
             draftRevision = UUID()
@@ -125,17 +148,19 @@ final class ChatStore {
     }
 
     func newConversation() {
-        guard !isSending else { return }
+        guard !isSending, ensureSaved() else { return }
         conversation = Conversation()
+        savedConversation = nil
         draft = ""
         draftRevision = UUID()
         errorMessage = nil
     }
 
     func openConversation(_ id: UUID) {
-        guard !isSending, let storage else { return }
+        guard !isSending, ensureSaved(), let storage else { return }
         do {
             conversation = try storage.load(id)
+            savedConversation = conversation
             draft = ""
             draftRevision = UUID()
             errorMessage = nil
@@ -146,7 +171,10 @@ final class ChatStore {
         guard !isSending, let storage else { return }
         do {
             try storage.delete(id)
-            if conversation.id == id { newConversation() }
+            if conversation.id == id {
+                hasUnsavedChanges = false
+                newConversation()
+            }
             refreshHistory()
         } catch { storageError = "We couldn’t delete this conversation. Please try again." }
     }
@@ -184,13 +212,37 @@ final class ChatStore {
         }
     }
 
+    @discardableResult
+    func retrySave() -> Bool {
+        saveCurrent()
+        refreshHistory()
+        return !hasUnsavedChanges
+    }
+
+    /// Navigation and sign-out use this boundary rather than dropping an in-memory answer.
+    func ensureSaved() -> Bool {
+        !hasUnsavedChanges || retrySave()
+    }
+
+    func discardUnsavedChanges() {
+        guard !isSending, hasUnsavedChanges else { return }
+        conversation = savedConversation ?? Conversation()
+        hasUnsavedChanges = false
+        storageError = nil
+    }
+
     private func saveCurrent() {
         guard !conversation.messages.isEmpty else { return }
         conversation.updatedAt = Date()
         do {
             try storage?.save(conversation)
+            savedConversation = conversation
+            hasUnsavedChanges = false
             storageError = nil
-        } catch { storageError = "We couldn’t save the latest messages on your phone. Keep this conversation open and try again." }
+        } catch {
+            hasUnsavedChanges = true
+            storageError = "The latest answer is only in memory. Retry saving before leaving this conversation."
+        }
     }
 
     private func refreshHistory() {

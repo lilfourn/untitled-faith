@@ -18,6 +18,10 @@ final class AccountUsageStore {
         self.preferences = preferences
     }
 
+    static func removeCache(namespace: String, preferences: UserDefaults) {
+        preferences.removeObject(forKey: "accountUsage." + SHA256.hash(data: Data(namespace.utf8)).map { String(format: "%02x", $0) }.joined())
+    }
+
     func activate(namespace: String) {
         let key = "accountUsage." + SHA256.hash(data: Data(namespace.utf8)).map { String(format: "%02x", $0) }.joined()
         guard key != cacheKey else { return }

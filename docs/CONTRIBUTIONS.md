@@ -1,6 +1,6 @@
 # Contribution wizard
 
-The entry point is **Settings → Add usage**, available in the signed-in app and in the Debug chat preview. This is a two-step native SwiftUI flow.
+The entry point is **Settings → Add usage**, available when Stripe checkout is enabled for the U.S. storefront, and in the Debug chat preview. Production purchases remain disabled pending the separate Untitled Faith Stripe account setup. This is a two-step native SwiftUI flow.
 
 1. Enter a USD contribution with a numeric keypad. Digits roll upward with `numericText` transitions; key presses have a small spring response and selection haptics. The input accepts $1–$1,000 with up to two decimal places.
 2. Optionally allocate 0–3% to the developer using a slider in 0.1% steps. It starts at 0%. The bottom amount shows the developer's share. Returning to step one preserves the selected percentage and recalculates the split if the amount changes.
@@ -11,7 +11,7 @@ The final design is deliberately minimal. It has no top progress bar or header t
 
 The thanks screen includes Luke's personal note behind a collapsed “Read developer’s note” button. It expands inline in italic text, slightly dimmed to identify it as his direct quote, and can be collapsed again. Only grammar, spelling, and punctuation were corrected; the content and attribution remain intact. Reading or hiding the note does not change the chosen percentage or contribution total.
 
-`ContributionSelection` passes the original amount and selected share in basis points to the checkout boundary. `UnconfiguredContributionCheckout` explicitly reports that payment is unavailable; it neither charges nor credits the account. Checkout remains a separate integration. An Apple IAP adapter must map contributions to real App Store products and verify receipts; arbitrary entered amounts do not create arbitrary StoreKit prices. A payment adapter must carry the authorized share through its server-side purchase intent and derive all amounts from verified payment data.
+`ContributionSelection` passes the original amount and selected share in basis points to the checkout boundary. The signed-in flow uses `StripeContributionCheckout` to open server-created Stripe Checkout in the external browser. A short explanation on the final step describes checkout and fee reconciliation. Preview mode retains `UnconfiguredContributionCheckout` and cannot charge or credit an account. The user selected Stripe with Apple Pay to retain custom amounts; there is no StoreKit purchase adapter. See [payments and separate developer accounting](PAYMENTS.md) for the server verification, owner overview, and activation state.
 
 The backend independently validates 0–300 basis points, calculates the cent-rounded split, and records usage funding and developer thanks separately. Migration `0003_optional_developer_share.sql` preserves old zero-share behavior and reverses both allocations on refund. A duplicate transaction cannot change its selected split.
 

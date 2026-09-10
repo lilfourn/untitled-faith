@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 protocol ContributionCheckout {
     func begin(_ selection: ContributionSelection) async throws
 }

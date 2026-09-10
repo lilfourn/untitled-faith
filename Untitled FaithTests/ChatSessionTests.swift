@@ -52,6 +52,22 @@ final class ChatSessionTests: XCTestCase {
         XCTAssertNil(restored.errorMessage)
     }
 
+    func testRetryCheckDoesNotResubmitWhileOriginalRequestIsProcessing() async {
+        let service = RecordingAnswerService()
+        service.failure = .unavailable
+        service.status = .reserved
+        let store = ChatStore(service: service)
+        store.draft = "Question"
+        await store.send(animate: false)
+        let mayRetry = await store.checkRetry()
+        XCTAssertFalse(mayRetry)
+        XCTAssertEqual(service.requests.count, 1)
+        service.status = .settled
+        let mayGenerateAgain = await store.checkRetry()
+        XCTAssertTrue(mayGenerateAgain)
+        XCTAssertEqual(service.requests.count, 1)
+    }
+
     func testImmediateStopDoesNotStartInference() async throws {
         let service = RecordingAnswerService()
         let store = ChatStore(service: service)
@@ -68,7 +84,8 @@ final class ChatSessionTests: XCTestCase {
     func testStreamErrorsKeepRateLimitAndSourceFailureMeaning() throws {
         for (payload, expected) in [
             (#"{"code":"answer_unavailable","status":429}"#, AnswerServiceError.rateLimited),
-            (#"{"code":"sources_unavailable"}"#, AnswerServiceError.sourcesUnavailable)
+            (#"{"code":"sources_unavailable"}"#, AnswerServiceError.sourcesUnavailable),
+            (#"{"code":"invalid_answer_format","status":502}"#, AnswerServiceError.invalidResponse)
         ] {
             var parser = AnswerEventParser()
             XCTAssertThrowsError(try parser.consume("data: {\"type\":\"error\",\"error\":\(payload)}")) {
@@ -173,6 +190,31 @@ final class ChatSessionTests: XCTestCase {
         XCTAssertTrue(store.conversation.messages.isEmpty)
     }
 
+    func testFailedAnswerSaveBlocksNavigationAndCanRetryWithoutInference() async throws {
+        let storage = LocalConversationStorage(namespace: "save-recovery", root: root)
+        let service = RecordingAnswerService()
+        service.beforeAnswer = {
+            // The question was saved; make the destination unwritable for the answer.
+            try FileManager.default.removeItem(at: storage.directory)
+            try Data("blocking file".utf8).write(to: storage.directory)
+        }
+        let store = ChatStore(service: service, storage: storage)
+        store.draft = "Question"
+        await store.send(animate: false)
+        let id = store.conversation.id
+        XCTAssertTrue(store.hasUnsavedChanges)
+        XCTAssertEqual(store.conversation.messages.count, 2)
+        store.newConversation()
+        XCTAssertEqual(store.conversation.id, id)
+        XCTAssertFalse(store.ensureSaved())
+        try FileManager.default.removeItem(at: storage.directory)
+        XCTAssertTrue(store.retrySave())
+        XCTAssertEqual(try storage.load(id).messages.count, 2)
+        XCTAssertEqual(service.requests.count, 1)
+        store.newConversation()
+        XCTAssertNotEqual(store.conversation.id, id)
+    }
+
     func testEventParserRejectsErrorsAndMismatchedCompletion() throws {
         var parser = AnswerEventParser()
         _ = try parser.consume(#"data: {"type":"start"}"#)
@@ -218,12 +260,16 @@ private final class RecordingAnswerService: AnswerService {
     var requests: [[ChatMessage]] = []
     var interrupt = false
     var failure: AnswerServiceError?
+    var beforeAnswer: (() throws -> Void)?
+    var status: AnswerAttemptStatus = .notFound
+    func requestStatus(for messageID: UUID) async throws -> AnswerAttemptStatus { status }
     func answer(for messages: [ChatMessage]) async throws -> FaithAnswer { fatalError("Must stream") }
     func streamAnswer(for messages: [ChatMessage], onUpdate: @escaping @MainActor (String) -> Void) async throws -> FaithAnswer {
         requests.append(messages)
         onUpdate("A streamed")
         if interrupt { throw CancellationError() }
         if let failure { throw failure }
+        try beforeAnswer?()
         onUpdate("A streamed answer")
         return FaithAnswer(text: "A streamed answer", scripture: [], commentary: [])
     }

@@ -1,7 +1,7 @@
 import { ANSWER_ROUTES } from './model-policy';
 import { requestWithRateLimitFallback } from './model-routing';
 import { answerSystemPrompt } from "./answer-prompt";
-import { MAX_MODERATED_CONTENT_LENGTH, MODERATED_RESPONSE_FORMAT, moderatedAnswer } from "./content-policy";
+import { AnswerValidationError, MAX_MODERATED_CONTENT_LENGTH, MODERATED_RESPONSE_FORMAT, moderatedAnswer } from "./content-policy";
 import type { Message } from "./contract";
 import { APIError, isRecord, readJSON } from "./http";
 import { cashCostMicros, MAX_INPUT_PRICE, MAX_OUTPUT_PRICE, MAX_OUTPUT_TOKENS } from "./billing-policy";
@@ -68,12 +68,13 @@ export async function generateAnswer(messages: Message[], apiKey: string, userID
       : /signal|abort/i.test(failureText) ? "signal" : /fetch|network|connect/i.test(failureText) ? "network" : "other";
     console.log(JSON.stringify({ event: "inference_failed", stage, upstreamStatus, upstreamErrorCode,
       sourceFailure: error instanceof SourceValidationError ? error.reason : undefined,
+      validationFailure: error instanceof AnswerValidationError ? error.reason : undefined, generationID,
       errorType: error instanceof Error ? error.name : "unknown", failureKind,
       keyHasControlCharacters: /[\r\n]/.test(apiKey) }));
     if (error instanceof InferenceError) throw error;
     if (signal.aborted) throw new InferenceError(504, "answer_timeout", accounting, generationID);
     // Never return provider bodies, credentials, routing information, or model metadata.
-    throw new InferenceError(502, error instanceof SourceValidationError ? error.code : "answer_unavailable", accounting, generationID);
+    throw new InferenceError(502, error instanceof SourceValidationError || error instanceof AnswerValidationError ? error.code : "answer_unavailable", accounting, generationID);
   }
 }
 

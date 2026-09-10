@@ -1,34 +1,60 @@
 import { reviewedAnswer } from './request-review';
+import { handleReliability } from './reliability-routes';
 import { authenticate } from "./auth";
 import { handleAppleAuth } from "./apple-auth";
 import { CONSENT_VERSION, MAX_REQUEST_BYTES, parseAnswerRequest } from "./contract";
 import { APIError, isRecord, jsonResponse, readJSON } from "./http";
 import { generateAnswer, InferenceError } from "./openrouter";
-import { requireAccount } from "./accounts";
+import { finishAccountDeletions, requireAccount } from "./accounts";
 import { reservationMicros } from "./billing-policy";
 import { holdUncertainUsage, releaseUsage, reserveUsage, settleUsage, usageSummary } from "./usage";
 import { reconcileUsage } from "./reconcile-usage";
 import { answerStream } from "./answer-stream";
 import { handlePassages, PassageEnv } from "./esv";
 import { prepareBible } from "./bible/prepare";
+import { handlePayments, paymentReturnPage } from './payments/routes';
+import { reconcilePayments } from './payments/reconciliation';
+import { retryStripeEvents } from './payments/webhook';
 
 export default {
   async scheduled(_controller, env): Promise<void> {
     await reconcileUsage(env.DB, env.OPENROUTER_API_KEY);
+    await retryStripeEvents(env);
+    await reconcilePayments(env);
+    await finishAccountDeletions(env.DB);
   },
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const requestID = crypto.randomUUID();
     const started = Date.now();
     let status = 200;
+    const tracked = (response: Response) => {
+      status = response.status;
+      const headers = new Headers(response.headers);
+      headers.set('X-Request-ID', requestID);
+      return new Response(response.body, { status: response.status, headers });
+    };
     try {
       const url = new URL(request.url);
+      const reliability = await handleReliability(request, env);
+      if (reliability) return tracked(reliability);
       if (url.pathname === "/health" && request.method === "GET") return jsonResponse({ status: "ok" });
-      if (url.pathname.startsWith("/v1/auth/")) return await handleAppleAuth(request, env);
+      if (request.method === 'GET') {
+        const page = paymentReturnPage(url.pathname);
+        if (page) return page;
+        if (url.pathname === '/.well-known/apple-app-site-association') return jsonResponse({
+          applinks: { details: [{ appIDs: ['BZT8F2M765.com.lukefournier.UntitledFaith'],
+            components: [{ '/': '/payments/open' }] }] },
+        });
+      }
+      if (url.pathname.startsWith('/v1/payments/') || url.pathname === '/v1/owner/payments') {
+        return tracked(await handlePayments(request, env, ctx));
+      }
+      if (url.pathname.startsWith("/v1/auth/")) return tracked(await handleAppleAuth(request, env));
       if (url.pathname === "/v1/me/usage" && request.method === "GET") {
         const userID = await authenticate(request, env.SESSION_SIGNING_KEY);
         return jsonResponse(await usageSummary(env.DB, userID));
       }
-      if (url.pathname === "/v1/passages" && request.method === "GET") return await handlePassages(request, env as PassageEnv);
+      if (url.pathname === "/v1/passages" && request.method === "GET") return tracked(await handlePassages(request, env as PassageEnv));
       if (url.pathname !== "/v1/answers") throw new APIError(404, "not_found");
       if (request.method !== "POST") throw new APIError(405, "method_not_allowed");
       if (!env.OPENROUTER_API_KEY?.trim() || !env.SESSION_SIGNING_KEY || env.SESSION_SIGNING_KEY.length < 32) {
@@ -71,7 +97,8 @@ export default {
     } catch (error) {
       const failure = error instanceof APIError ? error : new APIError(500, "internal_error");
       status = failure.status;
-      return jsonResponse({ error: { code: failure.code }, requestID }, status);
+      if (status >= 500) console.error(JSON.stringify({ event: 'request_failed', requestID, status, errorCode: failure.code }));
+      return tracked(jsonResponse({ error: { code: failure.code }, requestID }, status));
     } finally {
       console.log(JSON.stringify({ event: "request_completed", requestID, status, durationMS: Date.now() - started }));
     }

@@ -1,7 +1,7 @@
 import { base64url, EncryptJWT, jwtDecrypt, SignJWT } from "jose";
 import { AppleClient } from "./apple-client";
 import { APIError, isRecord, jsonResponse, readJSON } from "./http";
-import { accountForIdentity, beginAccountDeletion, cancelAccountDeletion, deleteAccountData, requireAccount } from "./accounts";
+import { accountForIdentity, beginAccountDeletion, deleteAccountData, requireAccount } from "./accounts";
 import { parseFirstName } from "./account-profile";
 
 const DAY = 24 * 60 * 60;
@@ -68,11 +68,19 @@ export async function handleAppleAuth(request: Request, env: Env): Promise<Respo
   exactKeys(input, ["refreshToken"]);
   const state = await openRefreshToken(stringField(input.refreshToken, 16384), encryptionKey);
   if (route === "/v1/auth/revoke") {
-    await requireAccount(env.DB, state.subject, true);
-    await beginAccountDeletion(env.DB, state.subject);
-    try { await client.revoke(state.appleRefreshToken, request.signal); }
-    catch (error) { await cancelAccountDeletion(env.DB, state.subject); throw error; }
-    await deleteAccountData(env.DB, state.subject);
+    // A valid sealed credential for an already-deleted account can finish a lost response.
+    // A newly created account has a different subject and is never touched by this retry.
+    if (await beginAccountDeletion(env.DB, state.subject)) {
+      const row = await env.DB.prepare("SELECT apple_revoked_at FROM users WHERE id = ?").bind(state.subject)
+        .first<{ apple_revoked_at: number | null }>();
+      if (row && row.apple_revoked_at === null) {
+        // Apple returns 200 for a previously revoked token, so replay after a crash is safe.
+        await client.revoke(state.appleRefreshToken, request.signal);
+        await env.DB.prepare("UPDATE users SET apple_revoked_at = ? WHERE id = ? AND deleting_at IS NOT NULL")
+          .bind(Date.now(), state.subject).run();
+      }
+      await deleteAccountData(env.DB, state.subject);
+    }
     return jsonResponse({ revoked: true });
   }
   await requireAccount(env.DB, state.subject);

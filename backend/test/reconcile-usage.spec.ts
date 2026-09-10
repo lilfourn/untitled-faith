@@ -26,6 +26,8 @@ describe("uncertain usage reconciliation", () => {
   it("retains funds on missing metadata and releases a stale in-progress lock", async () => {
     const account = await accountForIdentity(env.DB, "test-identity");
     const reservation = await reserveUsage(env.DB, account.id, crypto.randomUUID(), 10000, new Date(Date.now() - 360000));
+    // Historical requests do not have a trustworthy pre-dispatch checkpoint.
+    await env.DB.prepare("UPDATE usage_requests SET inference_stage = 'unknown' WHERE id = ?").bind(reservation.id).run();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
     await reconcileUsage(env.DB, "test-key");
     const row = await env.DB.prepare("SELECT status FROM usage_requests WHERE id = ?").bind(reservation.id).first();

@@ -47,6 +47,18 @@ struct SignInView: View {
                 .accessibilityAddTraits(.isHeader)
 
             VStack(spacing: 18) {
+                if session.hasPendingDeletion {
+                    Text("Your account deletion needs to finish before you sign in again.")
+                        .font(.subheadline)
+                    Button("Retry account deletion") { Task { await session.resumeAccountDeletion() } }
+                        .disabled(session.isDeletingAccount)
+                } else if session.canRetryRestoration {
+                    Text("Your saved sign-in is temporarily unavailable.")
+                        .font(.subheadline)
+                    Button("Retry saved sign-in") { Task { await session.restoreSession(retry: true) } }
+                        .disabled(session.isRestoring)
+                }
+
                 AppleSignInControl(onRequest: session.prepareAppleAuthorization, onCompletion: session.handleAppleAuthorization)
                     .disabled(!session.canSignIn)
                     .opacity(session.isSigningIn || session.isRestoring ? 0.5 : 1)

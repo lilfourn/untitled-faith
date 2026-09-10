@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContributionWizard: View {
     var checkout: any ContributionCheckout = UnconfiguredContributionCheckout()
+    var usesBrowserCheckout = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var draft = ContributionDraft()
@@ -71,7 +72,10 @@ struct ContributionWizard: View {
                     Task {
                         isContinuing = true
                         defer { isContinuing = false }
-                        do { try await checkout.begin(draft.selection) }
+                        do {
+                            try await checkout.begin(draft.selection)
+                            if usesBrowserCheckout { dismiss() }
+                        }
                         catch { checkoutError = error.localizedDescription }
                     }
                 }
@@ -94,6 +98,11 @@ struct ContributionWizard: View {
             .accessibilityLabel(step == 0 ? "Next" : "Continue with \(draft.amountFormatted)")
             if step == 0 && draft.amountCents > 0 && !draft.canContinue {
                 Text("Minimum $1").font(.caption).foregroundStyle(.secondary)
+            }
+            if step == 1 && usesBrowserCheckout {
+                Text("Continue opens secure checkout in your browser. Apple Pay is available on supported devices. Usage funding is credited after payment fees and your selected share; fees may be adjusted after settlement.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, 28)

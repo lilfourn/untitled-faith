@@ -1,4 +1,4 @@
-import { MAX_MODERATED_CONTENT_LENGTH, moderatedAnswer } from './content-policy';
+import { AnswerValidationError, MAX_MODERATED_CONTENT_LENGTH, moderatedAnswer } from './content-policy';
 import type { Message } from './contract';
 import { isRecord } from './http';
 import { cashCostMicros } from './billing-policy';
@@ -74,8 +74,9 @@ export async function streamAnswer(messages: Message[], apiKey: string, userID: 
   } catch (error) {
     console.log(JSON.stringify({ event: 'inference_failed', stage, upstreamStatus,
       sourceFailure: error instanceof SourceValidationError ? error.reason : undefined,
+      validationFailure: error instanceof AnswerValidationError ? error.reason : undefined, generationID,
       errorType: error instanceof Error ? error.name : 'unknown' }));
     if (error instanceof InferenceError) throw error;
-    throw new InferenceError(signal.aborted ? 504 : 502, signal.aborted ? 'answer_timeout' : error instanceof SourceValidationError ? error.code : 'answer_unavailable', accounting, generationID);
+    throw new InferenceError(signal.aborted ? 504 : 502, signal.aborted ? 'answer_timeout' : error instanceof SourceValidationError || error instanceof AnswerValidationError ? error.code : 'answer_unavailable', accounting, generationID);
   }
 }

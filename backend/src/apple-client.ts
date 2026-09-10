@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, customFetch, importPKCS8, jwtVerify, SignJWT, type JWTPayload } from "jose";
+import { createRemoteJWKSet, customFetch, errors, importPKCS8, jwtVerify, SignJWT, type JWTPayload } from "jose";
 import { APIError, isRecord, readJSON } from "./http";
 
 export type AppleConfiguration = {
@@ -31,10 +31,17 @@ export class AppleClient {
         ...(expectedNonce ? { maxTokenAge: "10m" } : {}),
       });
       if (!payload.sub || payload.sub.length > 255 ||
-          (expectedNonce && payload.nonce !== expectedNonce)) throw new Error("Invalid identity");
+          (expectedNonce && payload.nonce !== expectedNonce)) throw new APIError(401, "invalid_apple_credential");
       return { ...payload, sub: payload.sub };
-    } catch {
-      throw new APIError(401, "invalid_apple_credential");
+    } catch (error) {
+      if (error instanceof APIError) throw error;
+      const invalidCredentials = ["ERR_JWT_EXPIRED", "ERR_JWT_CLAIM_VALIDATION_FAILED", "ERR_JWS_SIGNATURE_VERIFICATION_FAILED",
+        "ERR_JWS_INVALID", "ERR_JWT_INVALID", "ERR_JOSE_ALG_NOT_ALLOWED", "ERR_JWKS_NO_MATCHING_KEY"];
+      if (error instanceof errors.JOSEError && invalidCredentials.includes(error.code)) {
+        throw new APIError(401, "invalid_apple_credential");
+      }
+      // Key-server outages must not tell the phone that its Apple authorization was revoked.
+      throw new APIError(502, "apple_unavailable");
     }
   }
 

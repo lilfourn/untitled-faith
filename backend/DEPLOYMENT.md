@@ -2,6 +2,35 @@
 
 Updated September 9, 2026.
 
+## Stripe integration: local source only, September 10
+
+The Stripe Checkout/Apple Pay integration and owner-only Payment overview are implemented locally;
+**production purchases remain disabled** (`PAYMENTS_ENABLED=false`). Luke chose a **separate Untitled Faith
+Stripe account**, custom $1–$1,000 amounts, an optional 0–3% share inside the total, and immediate estimated
+credit followed by fee reconciliation. Gridbloom's Stripe account has not been configured or used.
+
+The new source requires migration `0008_stripe_payments.sql`, following the concurrent recovery migration
+`0007_recovery.sql`, before any deployment of this source. Account-deletion guards also depend on the new
+payment tables. No payment migration, Worker release, Stripe credential, webhook, or real charge was
+applied remotely by the payment task. Existing deployment entries below describe earlier releases.
+
+Validation: `./scripts/dev check` passed the Bible index, TypeScript, **366 Workers tests**, two recovery
+script tests, and deployment dry run. Logs: `.dev/logs/backend-tests-20260910-003022-86449.log`,
+`.dev/logs/recovery-script-tests-20260910-003044-86449.log`, and
+`.dev/logs/backend-bundle-20260910-003044-86449.log`. The payment file contains **30 targeted tests**.
+`./scripts/dev build` passed with Apple sign-in and Keychain signing verified
+(`.dev/logs/build-Debug-20260910-002556-83541.log`). Both payment setup scripts pass `node --check`;
+`git diff --check` passed. No iOS test suite, simulator UI automation, real Stripe test checkout, live
+purchase, or Apple Pay presentation verification was run.
+
+The setup script's preview makes no changes. The read-only readiness script correctly reports the missing
+Untitled Faith account ID/API key. Luke must create the separate merchant account and finish its business
+verification/payout setup. Then configure its keys/webhook and the verified owner app-account ID, run a
+real test-mode checkout/refund in a separate test database, and activate/deploy the reviewed production
+configuration. See [payment setup and accounting](../docs/PAYMENTS.md). Shared source continues changing
+in the reliability task; recheck it before a release rather than treating these checks as a release lock.
+
+
 The clearer teaching and context instructions are deployed as version
 `cfda7243-bc3c-4378-b79a-8f8dcdcd6f25` from source commit `5d505d8`. Both answer paths now require
 context before drawing conclusions, explained connections between passages and claims, plain definitions,
@@ -162,7 +191,7 @@ The `DB` binding points to D1 database `untitled-faith-users` (`599fc9a3-1546-44
 
 Account/usage verification: 55 backend tests passed; 12 signed simulator tests passed; the signed Release simulator build passed. A live developer account started at 100%, received one answer with 171 prompt tokens and 295 completion tokens, recorded 1,303 micro-USD including acquisition fees, and changed to 96%. A repeated idempotency key returned 409 without another generation. No unsettled requests remained; the developer account was removed and its accounting record unlinked. Three earlier diagnostic reservations were released after confirming that an unsupported fetch redirect mode rejected those requests before upstream I/O. Server fetches now use manual redirect handling, preserving the no-forwarding policy.
 
-Payment checkout and verified-payment ingestion are not connected yet. The personal contribution/refund ledger is implemented and tested; no real contribution has been credited.
+The earlier deployed release has no connected checkout. Stripe payment ingestion and the owner overview are now implemented in local source only; see the September 10 activation section above. No real contribution has been credited by the payment integration task.
 
 The supplied OpenRouter key was accepted by OpenRouter's authenticated key endpoint. Its value is stored in Cloudflare as `secret_text` and in the ignored local `.dev.vars` file with owner-only permissions (`0600`). It is absent from Apple client source and configuration. Users never supply an OpenRouter key; the backend uses this secret for their requests.
 

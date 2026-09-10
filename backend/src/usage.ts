@@ -21,8 +21,8 @@ export async function reserveUsage(db: D1Database, userID: string, key: string, 
     try {
       // free_daily_limit is retained as legacy ledger data, no longer enforced by the trigger.
       await db.prepare(`INSERT INTO usage_requests
-        (id, user_id, idempotency_key, month, day, created_at, updated_at, funding, reserved_micros, free_daily_limit, free_monthly_limit)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, userID, key, month, day, now.getTime(), now.getTime(),
+        (id, user_id, idempotency_key, month, day, created_at, updated_at, funding, reserved_micros, free_daily_limit, free_monthly_limit, inference_stage)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reserved')`).bind(id, userID, key, month, day, now.getTime(), now.getTime(),
         funding, amount, 0, FREE_MONTHLY_QUESTIONS).run();
       return { id, funding, reservedMicros: amount };
     } catch (error) {
@@ -47,7 +47,7 @@ export async function settleUsage(db: D1Database, id: string, usage: InferenceUs
     if (!Number.isSafeInteger(value) || value < 0) throw new Error("Invalid usage accounting");
   }
   await db.prepare(`UPDATE usage_requests SET status = 'settled', cost_micros = ? + review_cost_micros, prompt_tokens = ? + review_prompt_tokens,
-    completion_tokens = ? + review_completion_tokens, generation_id = ?, updated_at = ? WHERE id = ? AND status IN ('reserved', 'uncertain')`)
+    completion_tokens = ? + review_completion_tokens, generation_id = ?, updated_at = ?, needs_review_at = NULL, reconciliation_error = NULL WHERE id = ? AND status IN ('reserved', 'uncertain')`)
     .bind(usage.costMicros, usage.promptTokens, usage.completionTokens, usage.generationID ?? null, Date.now(), id).run();
 }
 
@@ -75,11 +75,14 @@ export async function usageSummary(db: D1Database, userID: string, now = new Dat
     COUNT(*) AS total_requests,
     COALESCE(SUM(funding = 'free' AND status != 'released'), 0) AS free_used,
     COALESCE(SUM(funding = 'free' AND status != 'released' AND day = ?), 0) AS free_used_today,
-    COALESCE(SUM(status IN ('reserved', 'uncertain')), 0) AS pending_requests,
     COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
     COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
     COALESCE(SUM(cost_micros), 0) AS cost_micros
     FROM usage_requests WHERE user_id = ? AND month = ?`).bind(day, userID, month).first<Record<string, number>>();
+  // Outstanding holds survive a month boundary and can still block deletion.
+  const recovery = await db.prepare(`SELECT COUNT(*) AS pending,
+    COALESCE(SUM(needs_review_at IS NOT NULL), 0) AS needs_review FROM usage_requests
+    WHERE user_id = ? AND status IN ('reserved', 'uncertain')`).bind(userID).first<{ pending: number; needs_review: number }>();
   const monthStart = new Date(`${month}-01T00:00:00Z`).getTime();
   const funds = await db.prepare(`SELECT
     COALESCE(SUM(CASE WHEN created_at < ? THEN delta_micros ELSE 0 END), 0) AS opening,
@@ -102,7 +105,7 @@ export async function usageSummary(db: D1Database, userID: string, now = new Dat
       remainingThisMonth: remainingFree },
     funding: { balanceMicros: account.paid_balance_micros, reservedMicros: account.paid_reserved_micros,
       availableMicros: Math.max(0, account.paid_balance_micros - account.paid_reserved_micros) },
-    usage: { totalRequests: counts?.total_requests ?? 0, pendingRequests: counts?.pending_requests ?? 0,
+    usage: { totalRequests: counts?.total_requests ?? 0, pendingRequests: recovery?.pending ?? 0, requestsNeedingReview: recovery?.needs_review ?? 0,
       promptTokens: counts?.prompt_tokens ?? 0, completionTokens: counts?.completion_tokens ?? 0,
       costMicros: counts?.cost_micros ?? 0 } };
 }
