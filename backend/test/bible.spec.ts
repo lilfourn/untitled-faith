@@ -99,6 +99,26 @@ it.each([
   expect(context.limited).toBe(true);
 });
 
+it.each([
+  ['Explain the Trinity', 'John 1:1–18'],
+  ['Explain the incarnation', 'Philippians 2:5–11'],
+  ['Explain predestination', 'Ephesians 1:3–14'],
+  ['Explain justification', 'James 2:14–26'],
+  ['What is the Eucharist?', 'Luke 22:14–20'],
+  ['Explain atonement', 'Hebrews 9:11–15'],
+  ['What is hell?', 'Revelation 20:11–15'],
+  ['Explain eschatology', 'Revelation 20:1–10'],
+  ['Explain creation', 'Colossians 1:15–20'],
+  ['Explain biblical inspiration', '2 Peter 1:16–21'],
+])('grounds theological vocabulary even without literal keyword matches: %s', (question, reference) => {
+  const context = retrieveBible(messages(question));
+  expect(context.passages.map(p => p.reference)).toContain(reference);
+  expect(context.passages.length).toBeGreaterThanOrEqual(2);
+  expect(context.passages.length).toBeLessThanOrEqual(MAX_BIBLE_PASSAGES);
+  expect(JSON.stringify(context).length).toBeLessThanOrEqual(MAX_BIBLE_CONTEXT_CHARACTERS);
+  expect(context.limited).toBe(true);
+});
+
 it('searches uncommon wording across the corpus without a topic guide or network call', () => {
   const network = vi.fn(); vi.stubGlobal('fetch', network);
   const results = searchBible('Melchizedek');

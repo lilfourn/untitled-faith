@@ -1,5 +1,8 @@
+import { THEOLOGY_SOURCES } from './theology-sources';
+
 // Product-approved sources. Keep the search filter and citation validation together.
-export const TRUSTED_DOMAINS = ['biblegateway.com', 'bible.com', 'esv.org', 'bibleproject.com', 'gotquestions.org'];
+export const TRUSTED_DOMAINS = ['biblegateway.com', 'bible.com', 'esv.org', 'bibleproject.com', 'gotquestions.org',
+  ...THEOLOGY_SOURCES.map(source => source.domain)];
 export const SEARCH_RESULTS = 5;
 export const SEARCH_CHARACTERS = 2000;
 export const SEARCH_CALLS = 1;
@@ -18,6 +21,8 @@ export function trustedURL(value: string): URL | undefined {
     if (url.protocol !== 'https:' || url.username || url.password || url.port || !TRUSTED_DOMAINS.includes(host)) return;
     url.hash = '';
     if (['biblegateway.com', 'bible.com', 'esv.org'].includes(host) && sourceKind(url) !== 'scripture') return;
+    const theology = THEOLOGY_SOURCES.find(source => source.domain === host);
+    if (theology && !theology.paths.test(url.pathname)) return;
     return url;
   } catch { return; }
 }

@@ -15,6 +15,16 @@ const GUIDES: { words: string[]; references: string[] }[] = [
   { words: ['temptation', 'tempted'], references: ['James 1:12-18', '1 Corinthians 10:12-13'] },
   { words: ['wealth', 'money', 'greed'], references: ['1 Timothy 6:6-10', 'Matthew 6:19-24'] },
   { words: ['justice', 'injustice'], references: ['Micah 6:6-8', 'Isaiah 1:16-20'] },
+  { words: ['trinity', 'triune'], references: ['Matthew 28:16-20', 'John 1:1-18'] },
+  { words: ['incarnation', 'christology'], references: ['John 1:1-18', 'Philippians 2:5-11'] },
+  { words: ['predestination', 'predestined', 'election', 'sovereignty'], references: ['Romans 9:6-24', 'Ephesians 1:3-14'] },
+  { words: ['justification', 'justified'], references: ['Romans 3:21-31', 'James 2:14-26'] },
+  { words: ['communion', 'eucharist'], references: ['1 Corinthians 11:17-34', 'Luke 22:14-20'] },
+  { words: ['atonement', 'propitiation'], references: ['Romans 3:21-26', 'Hebrews 9:11-15'] },
+  { words: ['hell', 'judgment'], references: ['Matthew 25:31-46', 'Revelation 20:11-15'] },
+  { words: ['eschatology', 'rapture', 'millennium'], references: ['1 Thessalonians 4:13-18', 'Revelation 20:1-10'] },
+  { words: ['creation', 'evolution'], references: ['Genesis 1:1-31', 'Colossians 1:15-20'] },
+  { words: ['canon', 'inspiration', 'inerrancy'], references: ['2 Timothy 3:14-17', '2 Peter 1:16-21'] },
 ];
 
 export function topicReferences(query: string): string[] {

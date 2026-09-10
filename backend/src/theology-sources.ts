@@ -1,0 +1,31 @@
+/** Consultation scope is not endorsement. Non-biblical works remain commentary. */
+export const THEOLOGY_SOURCES = [
+  { domain: 'ccel.org', paths: /^\/ccel\//,
+    guidance: 'CCEL /ccel/: historical Christian books. Identify the actual author, work, and viewpoint; a library collection is not a consensus or a single tradition.' },
+  { domain: 'newadvent.org', paths: /^\/(?:fathers|summa)\//,
+    guidance: 'New Advent /fathers/ and /summa/: translated early Christian writings and Thomas Aquinas. Identify author and work; distinguish the historical text from editorial notes and later Catholic interpretation.' },
+  { domain: 'opc.org', paths: /^\/(?:wcf|lc|sc)\.html$/,
+    guidance: 'OPC wcf.html, lc.html, sc.html: Westminster Confession and catechisms as published by the Orthodox Presbyterian Church; sources for Reformed/Presbyterian teaching, not all Protestant views.' },
+  { domain: 'vatican.va', paths: /^\/archive\/ENG0015\//,
+    guidance: 'Vatican /archive/ENG0015/: Catechism of the Catholic Church; a primary source for Roman Catholic teaching, not a statement of agreement among all Christians.' },
+  { domain: 'oca.org', paths: /^\/orthodoxy\/the-orthodox-faith(?:\/|$)/,
+    guidance: 'OCA /orthodoxy/the-orthodox-faith: Orthodox Church in America teaching series; identify its Eastern Orthodox perspective without assuming it represents every Orthodox author.' },
+  { domain: 'bookofconcord.org', paths: /^\/(?:augsburg-confession|defense|small-catechism|large-catechism|smalcald-articles|epitome|solid-declaration)(?:\/|$)/,
+    guidance: 'BookOfConcord.org: Lutheran confessional texts and catechisms. Cite the specific document and distinguish its historical teaching from every contemporary Lutheran church.' },
+  { domain: 'bfm.sbc.net', paths: /^\/bfm2000\/?$/,
+    guidance: 'Southern Baptist Convention /bfm2000/: Baptist Faith and Message 2000. Identify the edition and Southern Baptist scope; it does not represent all Baptists.' },
+  { domain: 'umc.org', paths: /^\/(?:en\/)?(?:content\/(?:articles-of-religion|confession-of-faith|by-water-and-the-spirit-a-united-methodist-understanding-of-baptism)|who-we-are\/what-we-believe)\/?$/,
+    guidance: 'UMC: Articles of Religion, Confession of Faith, By Water and the Spirit, and What We Believe. Sources for United Methodist teaching, not all Wesleyan or Methodist churches.' },
+  { domain: 'ag.org', paths: /^\/Beliefs\/Statement-of-Fundamental-Truths\/?$/,
+    guidance: 'Assemblies of God USA: Statement of Fundamental Truths. A primary source for this Pentecostal fellowship, not every Pentecostal or charismatic Christian.' },
+  { domain: 'churchofengland.org', paths: /^\/prayer-and-worship\/worship-texts-and-resources\/book-common-prayer(?:\/|$)/,
+    guidance: 'Church of England Book of Common Prayer, including Articles of Religion: Anglican historical formularies. Distinguish these texts from present practice across the worldwide Anglican Communion.' },
+  { domain: 'thegospelcoalition.org', paths: /^\/(?:essays|themelios)(?:\/|$)/,
+    guidance: 'The Gospel Coalition essays and Themelios: evangelical theological essays, scholarship, and reviews. Identify the author and argument; distinguish a reviewed book from the reviewer and do not imply universal Christian agreement.' },
+  { domain: 'bible.org', paths: /^\/article\//,
+    guidance: 'Bible.org articles: evangelical biblical studies and interpretation. Identify author, evidence, and assumptions; distinguish textual or historical evidence from a proposed reconstruction. Not an ESV passage provider.' },
+  { domain: 'plato.stanford.edu', paths: /^\/entries\/[a-z0-9-]+(?:\/|$)/,
+    guidance: 'Stanford Encyclopedia of Philosophy entries: academic arguments about religion, knowledge, ethics, evil, and God, including non-Christian objections. A philosophical reference, not Christian doctrinal authority; identify premises, objections, and unresolved debate.' },
+];
+
+export const THEOLOGY_SOURCE_GUIDANCE = THEOLOGY_SOURCES.map(source => `- ${source.guidance}`).join('\n');

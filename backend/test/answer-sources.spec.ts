@@ -26,6 +26,19 @@ it.each([
   'https://www.bible.com/events/123', 'https://www.bible.com/reading-plans/123',
   'https://www.biblegateway.com/blog/example', 'https://www.esv.org/resources/',
   'https://www.bible.com/bible/compare/reading-plans', 'https://www.bible.com/bible/compare/ROM.11.17-18/article',
+  'https://ccel.org/forums/topic', 'https://newadvent.org/news/',
+  'https://newadvent.org/bible/joh001.htm', 'https://opc.org/nh.html',
+  'https://vatican.va/content/news.html', 'https://oca.org/news/',
+  'https://oca.org/orthodoxy/the-orthodox-faith-fake/article',
+  'https://ccel.org.evil.example/ccel/author/book', 'https://evil.ccel.org/ccel/author/book',
+  'https://ccel.org/ccel/../forums/topic',
+  'https://stanford.edu/entries/evil/', 'https://plato.stanford.edu/about.html',
+  'https://plato.stanford.edu.evil.example/entries/evil/',
+  'https://sbc.net/bfm2000/', 'https://bfm.sbc.net/bfm2000-fake/',
+  'https://umc.org/en/content/unrelated-news', 'https://ag.org/News/',
+  'https://bookofconcord.org/resources/', 'https://thegospelcoalition.org/article/news/',
+  'https://bible.org/article-fake/example', 'https://bible.org/user/1',
+  'https://churchofengland.org/prayer-and-worship/worship-texts-and-resources/book-common-prayer-fake/',
 ])('rejects unapproved citation URLs: %s', value => { expect(trustedURL(value)).toBeUndefined(); });
 
 it.each([
@@ -70,10 +83,45 @@ it('deduplicates repeated annotations and does not expose unused results', () =>
 });
 
 it('requests restricted search with a bounded search budget', () => {
-  expect(WEB_SEARCH_TOOL.parameters.allowed_domains).toEqual(['biblegateway.com', 'bible.com', 'esv.org', 'bibleproject.com', 'gotquestions.org']);
+  expect(WEB_SEARCH_TOOL.parameters.allowed_domains).toEqual(['biblegateway.com', 'bible.com', 'esv.org', 'bibleproject.com', 'gotquestions.org',
+    'ccel.org', 'newadvent.org', 'opc.org', 'vatican.va', 'oca.org',
+    'bookofconcord.org', 'bfm.sbc.net', 'umc.org', 'ag.org', 'churchofengland.org',
+    'thegospelcoalition.org', 'bible.org', 'plato.stanford.edu']);
   expect(WEB_SEARCH_TOOL.parameters.engine).toBe('exa');
   expect(WEB_SEARCH_TOOL.parameters.max_uses).toBe(1);
   expect(reservationMicros([{ role: 'user', content: 'Hello' }])).toBeGreaterThan(7000);
+});
+
+it.each([
+  'https://ccel.org/ccel/augustine/confessions/confessions',
+  'https://www.newadvent.org/fathers/1301.htm',
+  'https://www.newadvent.org/summa/1002.htm',
+  'https://www.opc.org/wcf.html', 'https://opc.org/lc.html', 'https://opc.org/sc.html',
+  'https://www.vatican.va/archive/ENG0015/_P2.HTM',
+  'https://www.oca.org/orthodoxy/the-orthodox-faith/doctrine-scripture/the-holy-trinity',
+  'https://bookofconcord.org/augsburg-confession/',
+  'https://bookofconcord.org/small-catechism/',
+  'https://bookofconcord.org/defense/', 'https://bookofconcord.org/epitome/',
+  'https://bookofconcord.org/solid-declaration/',
+  'https://bfm.sbc.net/bfm2000/',
+  'https://www.umc.org/en/content/articles-of-religion',
+  'https://www.umc.org/en/content/confession-of-faith',
+  'https://www.umc.org/content/by-water-and-the-spirit-a-united-methodist-understanding-of-baptism',
+  'https://ag.org/Beliefs/Statement-of-Fundamental-Truths',
+  'https://www.churchofengland.org/prayer-and-worship/worship-texts-and-resources/book-common-prayer/articles-religion',
+  'https://www.thegospelcoalition.org/essays/', 'https://www.thegospelcoalition.org/themelios/',
+  'https://bible.org/article/content-and-extent-old-testament-canon',
+  'https://plato.stanford.edu/entries/philosophy-religion/',
+])('requires retrieved, matching evidence for theological commentary: %s', url => {
+  // Synthetic evidence checks the citation boundary, not the theology of these works.
+  const sources = new AnswerSources();
+  const answer = `A teaching aid explains:\n\n> [Commentary] ${quote}\n[Teaching aid](${url})\n`;
+  expect(() => sources.finish(answer)).toThrow('sources_unavailable');
+  sources.add([annotation(url)]);
+  expect(sources.finish(answer).sources![0]!.kind).toBe('commentary');
+  expect(() => sources.finish(answer.replace(quote, 'Invented wording.'))).toThrow('sources_unavailable');
+  sources.add([annotation(url, Array(26).fill('word').join(' '))]);
+  expect(() => sources.finish(answer.replace(quote, Array(26).fill('word').join(' ')))).toThrow('sources_unavailable');
 });
 
 it('accepts a verified 109-word Scripture quotation that previously discarded an entire prayer answer', () => {
