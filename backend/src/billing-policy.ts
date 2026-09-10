@@ -30,6 +30,7 @@ export function reservationMicros(messages: Message[], firstName: string | null 
   const rounds = SEARCH_CALLS + 2;
   const searchBytes = SEARCH_RESULTS * (SEARCH_CHARACTERS * 4 + 4096);
   const reviewBytes = new TextEncoder().encode(JSON.stringify(messages) + REVIEW_PROMPT + JSON.stringify(REVIEW_FORMAT)).byteLength + 4096;
+  // Both primary and fallback routes fit these caps; an HTTP 429 rejection is unbilled.
   const reviewCost = (reviewBytes * REVIEW_INPUT_PRICE + REVIEW_MAX_TOKENS * REVIEW_OUTPUT_PRICE) / 1_000_000;
   return cashCostMicros(((bytes * rounds + searchBytes) * MAX_INPUT_PRICE +
     MAX_OUTPUT_TOKENS * rounds * MAX_OUTPUT_PRICE) / 1_000_000 + SEARCH_COST_USD * SEARCH_CALLS) + cashCostMicros(reviewCost);

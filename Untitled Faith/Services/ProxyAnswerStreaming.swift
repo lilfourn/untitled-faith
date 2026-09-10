@@ -7,16 +7,14 @@ extension ProxyAnswerService {
         do {
             let (bytes, response) = try await session.bytes(for: request)
             guard let response = response as? HTTPURLResponse else { throw AnswerServiceError.invalidResponse }
-            switch response.statusCode {
-            case 200: break
-            case 401: throw AnswerServiceError.signInRequired
-            case 402: throw AnswerServiceError.fundingRequired
-            case 409: throw AnswerServiceError.requestConflict
-            case 403: throw AnswerServiceError.consentRequired
-            case 413: throw AnswerServiceError.conversationTooLong
-            case 429: throw AnswerServiceError.rateLimited
-            case 504: throw AnswerServiceError.timedOut
-            default: throw AnswerServiceError.unavailable
+            guard response.statusCode == 200 else {
+                var data = Data()
+                for try await byte in bytes {
+                    try Task.checkCancellation()
+                    data.append(byte)
+                    if data.count > 16 * 1024 { break }
+                }
+                throw Self.failure(status: response.statusCode, data: data)
             }
             guard response.value(forHTTPHeaderField: "Content-Type")?.lowercased().hasPrefix("text/event-stream") == true else {
                 throw AnswerServiceError.invalidResponse
@@ -77,7 +75,10 @@ struct AnswerEventParser {
             finished = true
             return .done(result)
         case "error":
+            if event.error?.status == 429 { throw AnswerServiceError.rateLimited }
             switch event.error?.code {
+            case "sources_unavailable": throw AnswerServiceError.sourcesUnavailable
+            case "rate_limited": throw AnswerServiceError.rateLimited
             case "answer_timeout": throw AnswerServiceError.timedOut
             default: throw AnswerServiceError.unavailable
             }
@@ -90,6 +91,9 @@ struct AnswerEventParser {
         let text: String?
         let answer: AnswerPayload?
         let error: Failure?
-        struct Failure: Decodable { let code: String }
+        struct Failure: Decodable {
+            let code: String
+            let status: Int?
+        }
     }
 }

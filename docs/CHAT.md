@@ -10,7 +10,7 @@ The user subsequently removed the “Allow AI answers?” popup. Send now goes d
 
 The app opens to a new, empty conversation after launch/sign-in. Previous conversations remain in History and open only when selected. New conversation preserves the previous chat. History supports reopening and confirmed deletion. Signing out retains local chats for that identity; successful account deletion removes that identity's local chat directory on this device after the active send stops. Removing the app removes its files. Other devices retain their own files.
 
-The question is saved before inference starts. The app shows shimmering Thinking… text while awaiting output, then Writing… when content starts arriving. Provider deltas stay offscreen until a valid final response arrives. The full response is saved before its formatted reveal begins. Interrupted requests retain the question without publishing unfinished answers. Stopping the visual reveal shows the already-saved full answer. Requests are never automatically retried; unreadable files are preserved and reported.
+The question is saved before inference starts. The app shows shimmering Thinking… text while awaiting output, then Writing… when content starts arriving. Provider deltas stay offscreen until a valid final response arrives. The full response is saved before its formatted reveal begins. Interrupted requests retain the question without publishing unfinished answers. Stopping the visual reveal shows the already-saved full answer. The client never automatically retries; the server may try its configured cheaper model after an unbilled HTTP 429 rejection. Unreadable files are preserved and reported.
 
 Every send constructs the full ordered `user`/`assistant` message array from the current conversation, including any displayed partial answer, then appends the latest question. The backend prepends the existing system prompt. The request ceiling is 1 MiB, 1,000 messages, 8,000 UTF-16 units per message, and 200,000 total. An over-limit conversation fails explicitly. No earlier message is dropped to fit.
 
@@ -66,3 +66,70 @@ The shared answer system prompt includes [writing instructions](../backend/src/w
 `AnswerMarkdown` uses MarkdownUI 2.4.1, pinned in `project.yml`, for native headings, emphasis, lists, tables, code blocks, and links. This version supports the app’s iOS 17 minimum (the author’s newer Textual package requires iOS 18). Custom Scripture/commentary quotation cards remain separate. Markdown image providers do not fetch remote images, and link opening is limited to the answer’s validated source URLs.
 
 Presentation verification: `./scripts/dev build` passed with signing (`.dev/logs/build-Debug-20260909-181027-2922.log`). The final `./scripts/dev test` run passed all 41 unit tests, including the loading-state, buffering, saved-answer cancellation, and Markdown render tests. The separate contribution wizard UI tests failed during the concurrently changing checkout work (`.dev/logs/ios-tests-20260909-181535-14001.log`); this is not an all-green suite. Light/dark rendering fixtures were inspected at `.dev/answer-presentation-light.png` and `.dev/answer-presentation-dark.png`.
+
+
+## Submission and failure recovery
+
+September 9 robustness update (released in TestFlight 1.0.1; backend deployed): submission saves the question, clears the draft,
+resets the native input identity, and sets the sending state synchronously before starting asynchronous
+work. Input callbacks carry a draft revision; callbacks from the submitted field cannot restore stale
+text. Validation/storage rejection preserves the draft. Stop before inference begins skips the call.
+
+An unanswered last question has a Retry answer action, including after reopening History. An explicit
+retry replaces that question's attempt ID and saves it before sending the same full context, without
+adding a duplicate question or clearing a newly typed draft. Retry can consume allowance/funding;
+there are no automatic retries after generation starts. The server-only HTTP 429 fallback is described below. Existing reservation rules still reject overlapping requests.
+
+The streaming error envelope now includes an optional status so provider 429 responses retain their
+rate-limit meaning. Source validation failures retain `sources_unavailable` through both backend answer
+adapters. No unchecked answer is published. Review and streaming logs include failure-stage/status
+metadata without conversation text or provider bodies. Streaming redirects now use the same known
+unbilled classification as the JSON adapter, settling only any completed review work.
+
+Verification: `./scripts/dev check` passed the index check, TypeScript, 232 Workers tests, and deployment
+dry run (`.dev/logs/backend-tests-20260909-204159-80776.log`). Signed build passed
+(`.dev/logs/build-Debug-20260909-204053-80326.log`). Added iOS regressions for immediate clearing,
+stale keyboard updates, duplicate taps, retry persistence, stop, and error mapping; syntax parsing passed,
+but iOS tests and simulator automation were not run per project instructions. Physical-keyboard/UI
+verification remains outstanding; release details are recorded below. Production observability confirmed 502 failures,
+but its event API failed schema validation and available aggregates did not establish the exact cause
+of the reported gambling-question failure. Do not describe that provider incident as resolved.
+
+
+## Cheaper fallback and allowance clarity
+
+September 9 follow-up, deployed with the TestFlight 1.0.1 upload: answer routing is Gemini 3.8 Flash → GPT-5.6 Luna with low
+reasoning. Review routing is Gemini 2.5 Flash Lite → GPT-4.1 Nano, preserving the separate model
+and the 128-token decision budget. `model-policy.ts` and `review-policy.ts` own the fixed routes;
+`model-routing.ts` tries the next route only for an HTTP 429 without OpenRouter platform-limit headers.
+It closes the rejected response before continuing and shares the original abort signal/deadline.
+HTTP 200 errors, partial streams, transport failures, 5xx, and moderation/source failures are not retried.
+
+Both fallback providers are pinned to OpenAI through OpenRouter with data collection denied and
+required parameters enforced. Luna's route caps are $0.40/M input and $1.80/M output to cover its
+long-context tier; its standard listed rates are $0.20/M and $1.20/M. The existing reservation caps
+cover both fallback routes, so no allowance, funding, or token budget was increased. OpenRouter's
+public model and endpoint catalogs advertised the required parameters on September 9; no paid
+inference or live quality test was performed.
+
+The new client sends `2026-09-09-openrouter-fallbacks` and discloses OpenAI in its privacy text.
+The backend also accepts `2026-09-09-openrouter-google` but keeps those older clients on Google-only
+routes. Deploy the backend before distributing the new client. No database migration or secret change
+is required. References: [rate-limit behavior](https://openrouter.ai/docs/api_reference/limits),
+[provider routing](https://openrouter.ai/docs/guides/routing/provider-selection),
+[model catalog](https://openrouter.ai/api/v1/models).
+
+The reported funding notice was traced to the daily cap: the active account had five settled free
+requests on September 10 UTC, ten this month, no paid funding, and no pending reservations. The shared
+pool still had funds. Settings now labels the percentage monthly and shows separate daily/monthly free
+counts plus the daily reset in local time. Backend 402 errors distinguish daily limit, monthly limit,
+and shared pool exhaustion when personal funding cannot cover a request. The daily/monthly limits are
+unchanged. History and new-chat toolbar symbols now share centered 44×44 frames and a 22-point font.
+
+Validation: `./scripts/dev check` passed index consistency, TypeScript, 252 Workers tests, and deployment
+dry run (`.dev/logs/backend-tests-20260909-205650-11841.log`, bundle
+`.dev/logs/backend-bundle-20260909-205706-11841.log`). Signed build passed with Apple sign-in and
+Keychain identity verified (`.dev/logs/build-Debug-20260909-205421-9173.log`). Added iOS allowance-error
+regressions passed syntax parsing only; iOS tests and UI automation were not run. Device presentation and real fallback quality remain unverified. The backend was subsequently deployed
+as `ef1f3f13-2136-4262-9f0a-99ab40e8fde3`, and TestFlight 1.0.1 (6) was uploaded successfully; Apple processing
+and phone installation were not verified. See [release record](TESTFLIGHT.md#reliability-update-101).

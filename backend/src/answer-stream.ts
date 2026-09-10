@@ -8,7 +8,7 @@ import type { BibleContext } from './bible/types';
 
 export function answerStream(request: Request, env: Env, messages: Message[], userID: string,
   reservationID: string, requestID: string, ctx?: ExecutionContext, firstName: string | null = null,
-  bibleContext?: BibleContext): Response {
+  bibleContext?: BibleContext, allowFallback = true): Response {
   const abort = new AbortController();
   const signal = AbortSignal.any([request.signal, abort.signal, AbortSignal.timeout(45000)]);
   const encoder = new TextEncoder();
@@ -21,6 +21,7 @@ export function answerStream(request: Request, env: Env, messages: Message[], us
       const work = (async () => {
         const started = Date.now();
         let status = 200;
+        let errorCode: string | undefined;
         try {
           send({ type: 'start', requestID });
           const result = await reviewedAnswer(env.DB, reservationID, messages, env.OPENROUTER_API_KEY, userID, signal,
@@ -29,7 +30,7 @@ export function answerStream(request: Request, env: Env, messages: Message[], us
               // Keep only accounting metadata for recovery; chat text is never stored here.
               await env.DB.prepare("UPDATE usage_requests SET generation_id = ? WHERE id = ? AND status = 'reserved'")
                 .bind(id, reservationID).run();
-            }, firstName, bibleContext, true));
+            }, firstName, bibleContext, true, allowFallback), allowFallback);
           await settleUsage(env.DB, reservationID, result.usage);
           // Never expose provider text before the complete moderation and source checks.
           send({ type: 'delta', text: result.text });
@@ -38,6 +39,7 @@ export function answerStream(request: Request, env: Env, messages: Message[], us
         } catch (error) {
           const failure = error instanceof APIError ? error : new APIError(500, 'internal_error');
           status = failure.status;
+          errorCode = failure.code;
           try {
             if (error instanceof InferenceError && error.accounting === 'unbilled') await releaseUsage(env.DB, reservationID);
             else if (error instanceof InferenceError && typeof error.accounting === 'object') await settleUsage(env.DB, reservationID, error.accounting);
@@ -46,10 +48,10 @@ export function answerStream(request: Request, env: Env, messages: Message[], us
             // The existing reconciler recovers stale reservations if settlement is unavailable.
             status = 500;
           }
-          send({ type: 'error', error: { code: failure.code }, requestID });
+          send({ type: 'error', error: { code: failure.code, status: failure.status }, requestID });
         } finally {
           if (!cancelled) controller.close();
-          console.log(JSON.stringify({ event: 'answer_stream_completed', requestID, status, durationMS: Date.now() - started }));
+          console.log(JSON.stringify({ event: 'answer_stream_completed', requestID, status, errorCode, durationMS: Date.now() - started }));
         }
       })();
       ctx?.waitUntil(work);

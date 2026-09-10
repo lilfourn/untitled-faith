@@ -17,7 +17,7 @@ Usage: ./scripts/dev <command>
 
   doctor             Check local tools, dependencies, secret-file permissions, and simulators
   build [Debug|Release] Build a signed simulator app without booting a device
-  archive [build-number] Create a signed Release archive; automatically increments the build
+  archive [minor|big] [build-number] Build a signed release; bump visible version (default: minor)
   upload <archive-path> Upload to App Store Connect for TestFlight (manages signing/build number)
   run                Build, verify entitlements, install, and open the app
   preview            Open the Debug chat preview (no authentication bypass for real API calls)
@@ -131,14 +131,20 @@ case "$ACTION" in
     build_app "${1:-Debug}"
     ;;
   archive)
+    release_size=minor
+    case "${1:-}" in minor|big) release_size="$1"; shift ;; esac
     if [ "$#" -gt 1 ]; then
-      echo "Usage: ./scripts/dev archive [build-number]" >&2
+      echo "Usage: ./scripts/dev archive [minor|big] [build-number]" >&2
       exit 2
     fi
     lock_ios
-    generate
+    need python3
+    need xcodegen
+    need xcodebuild
     build_number="$(python3 "$ROOT/scripts/next-build-number.py" "$ROOT" "$STATE" "$@")"
-    echo "Release build number: $build_number"
+    release_version="$(python3 "$ROOT/scripts/next-release-version.py" "$ROOT" "$release_size" "$build_number")"
+    generate
+    echo "Release version: $release_version ($build_number)"
     archive_path="$ROOT/DerivedData/Archives/Untitled Faith-$(date +%Y%m%d-%H%M%S)-$build_number.xcarchive"
     archive_options=("CODE_SIGNING_ALLOWED=YES" "CODE_SIGNING_REQUIRED=YES" "CURRENT_PROJECT_VERSION=$build_number")
     if [ -n "${FAITH_API_BASE_URL:-}" ]; then archive_options+=("FAITH_API_BASE_URL=$FAITH_API_BASE_URL"); fi
@@ -148,6 +154,12 @@ case "$ACTION" in
       -derivedDataPath "$ROOT/DerivedData/Release" -archivePath "$archive_path" \
       "${archive_options[@]}" archive
     python3 "$ROOT/scripts/verify-signing.py" "$archive_path/Products/Applications/$SCHEME.app"
+    release_plist="$archive_path/Products/Applications/$SCHEME.app/Info.plist"
+    if [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$release_plist")" != "$release_version" ] || \
+       [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$release_plist")" != "$build_number" ]; then
+      echo "Archived app version does not match the reserved release." >&2
+      exit 1
+    fi
     echo "Archive ready: $archive_path"
     echo "Open this archive in Xcode Organizer to validate and distribute through App Store Connect."
     ;;

@@ -1,3 +1,5 @@
+import { ANSWER_ROUTES } from './model-policy';
+import { requestWithRateLimitFallback } from './model-routing';
 import { answerSystemPrompt } from "./answer-prompt";
 import { MAX_MODERATED_CONTENT_LENGTH, MODERATED_RESPONSE_FORMAT, moderatedAnswer } from "./content-policy";
 import type { Message } from "./contract";
@@ -17,18 +19,15 @@ export class InferenceError extends APIError {
 
 export type AnswerGeneration = { text: string; usage: InferenceUsage; sources?: AnswerSource[]; quotes?: AnswerQuote[] };
 
-// Product decision: only the server controls the model. No automatic model fallback.
-const MODEL = "google/gemini-3.8-flash";
-
 export async function generateAnswer(messages: Message[], apiKey: string, userID: string, signal: AbortSignal,
-  firstName: string | null = null, bibleContext: BibleContext = retrieveBible(messages), relevanceVerified = false): Promise<AnswerGeneration> {
+  firstName: string | null = null, bibleContext: BibleContext = retrieveBible(messages), relevanceVerified = false, allowFallback = true): Promise<AnswerGeneration> {
   let generationID: string | undefined;
   let accounting: InferenceUsage | "uncertain" = "uncertain";
   let stage = "request";
   let upstreamStatus: number | undefined;
   let upstreamErrorCode: number | undefined;
   try {
-    const response = await requestCompletion(messages, apiKey, userID, signal, false, bibleContext, firstName, relevanceVerified);
+    const response = await requestCompletion(messages, apiKey, userID, signal, false, bibleContext, firstName, relevanceVerified, allowFallback);
     upstreamStatus = response.status;
     stage = "http_status";
     if (!response.ok) {
@@ -74,37 +73,23 @@ export async function generateAnswer(messages: Message[], apiKey: string, userID
     if (error instanceof InferenceError) throw error;
     if (signal.aborted) throw new InferenceError(504, "answer_timeout", accounting, generationID);
     // Never return provider bodies, credentials, routing information, or model metadata.
-    throw new InferenceError(502, "answer_unavailable", accounting, generationID);
+    throw new InferenceError(502, error instanceof SourceValidationError ? error.code : "answer_unavailable", accounting, generationID);
   }
 }
 
 export function requestCompletion(messages: Message[], apiKey: string, userID: string, signal: AbortSignal, stream: boolean,
-  bibleContext: BibleContext = retrieveBible(messages), firstName: string | null = null, relevanceVerified = false): Promise<Response> {
-  return fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      // Workerd's deployed fetch rejects redirect:"error". Manual never follows a redirect or forwards credentials.
-      redirect: "manual",
-      signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "X-OpenRouter-Title": "Untitled Faith",
-      },
-      body: JSON.stringify({
-        model: MODEL,
+  bibleContext: BibleContext = retrieveBible(messages), firstName: string | null = null, relevanceVerified = false, allowFallback = true): Promise<Response> {
+  return requestWithRateLimitFallback({
         // The subject must be an opaque app account ID, never an Apple ID or email.
         user: userID,
         messages: [{ role: "system", content: answerSystemPrompt(firstName) + (relevanceVerified ? '\nAn independent request reviewer has approved the latest request as relevant in this conversation. Answer its faith or pastoral aspect, or ask a brief clarifying question if needed. Do not reclassify a respectful interfaith question as off_topic. Continue enforcing all safety and source requirements on your answer.' : '') + '\n\n' + biblePrompt(bibleContext) }, ...messages],
-        provider: { only: ["google-ai-studio", "google-vertex"], data_collection: "deny", require_parameters: true,
+        provider: { data_collection: "deny", require_parameters: true,
           max_price: { prompt: MAX_INPUT_PRICE, completion: MAX_OUTPUT_PRICE, request: 0 } },
         response_format: MODERATED_RESPONSE_FORMAT,
-        // Leave room for the checked answer inside the existing completion cap.
-        reasoning: { effort: "low", exclude: true },
         tools: [WEB_SEARCH_TOOL],
         max_tool_calls: SEARCH_CALLS,
         stream,
         ...(stream ? { stream_options: { include_usage: true } } : {}),
         max_tokens: MAX_OUTPUT_TOKENS,
-      }),
-    });
+      }, allowFallback ? ANSWER_ROUTES : [ANSWER_ROUTES[0]], apiKey, signal);
 }

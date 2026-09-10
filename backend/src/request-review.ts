@@ -1,3 +1,4 @@
+import { requestWithRateLimitFallback } from './model-routing';
 import { POLICY_RESPONSES } from './content-policy';
 import type { Message } from './contract';
 import { isRecord, readJSON } from './http';
@@ -6,7 +7,7 @@ import { InferenceError, type AnswerGeneration } from './openrouter';
 import type { InferenceUsage } from './usage';
 
 export { REVIEW_MODEL, type ReviewDecision } from './review-policy';
-import { REVIEW_MODEL, REVIEW_INPUT_PRICE, REVIEW_OUTPUT_PRICE, REVIEW_MAX_TOKENS, REVIEW_PROMPT, REVIEW_FORMAT, type ReviewDecision } from './review-policy';
+import { REVIEW_ROUTES, REVIEW_INPUT_PRICE, REVIEW_OUTPUT_PRICE, REVIEW_MAX_TOKENS, REVIEW_PROMPT, REVIEW_FORMAT, type ReviewDecision } from './review-policy';
 
 export function parseReview(content: unknown): ReviewDecision {
   // A single enum needs no JSON repair. Anchoring also rejects duplicate fields.
@@ -16,27 +17,27 @@ export function parseReview(content: unknown): ReviewDecision {
 }
 
 export async function reviewRequest(messages: Message[], apiKey: string, userID: string, signal: AbortSignal,
-  onGeneration: (id: string) => Promise<void> = async () => {}): Promise<{ decision: ReviewDecision; usage: InferenceUsage }> {
+  onGeneration: (id: string) => Promise<void> = async () => {}, allowFallback = true): Promise<{ decision: ReviewDecision; usage: InferenceUsage }> {
   let accounting: InferenceUsage | 'uncertain' = 'uncertain';
   let generationID: string | undefined;
+  let stage = 'request';
+  let upstreamStatus: number | undefined;
   try {
     signal.throwIfAborted();
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST', redirect: 'manual', signal,
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'X-OpenRouter-Title': 'Untitled Faith' },
-      body: JSON.stringify({ model: REVIEW_MODEL, user: userID,
+    const response = await requestWithRateLimitFallback({ user: userID,
         messages: [{ role: 'system', content: REVIEW_PROMPT }, ...messages],
-        provider: { only: ['google-ai-studio', 'google-vertex'], data_collection: 'deny', require_parameters: true,
+        provider: { data_collection: 'deny', require_parameters: true,
           max_price: { prompt: REVIEW_INPUT_PRICE, completion: REVIEW_OUTPUT_PRICE, request: 0 } },
-        response_format: REVIEW_FORMAT, reasoning: { enabled: false }, temperature: 0,
+        response_format: REVIEW_FORMAT, temperature: 0,
         max_tokens: REVIEW_MAX_TOKENS, stream: false,
-      }),
-    });
+      }, allowFallback ? REVIEW_ROUTES : [REVIEW_ROUTES[0]], apiKey, signal);
+    upstreamStatus = response.status;
     if (!response.ok) {
       await response.body?.cancel();
       throw new InferenceError(response.status === 429 ? 429 : 502, 'answer_unavailable',
         (response.status >= 300 && response.status < 400) || [400, 401, 402, 403, 404, 413, 422, 429].includes(response.status) ? 'unbilled' : 'uncertain');
     }
+    stage = 'review';
     const value = await readJSON(response.body, 32 * 1024);
     generationID = isRecord(value) && typeof value.id === 'string' ? value.id.slice(0, 255) : undefined;
     if (generationID) await onGeneration(generationID);
@@ -52,16 +53,18 @@ export async function reviewRequest(messages: Message[], apiKey: string, userID:
         !isRecord(choice.message) || accounting === 'uncertain') throw new Error('Incomplete review');
     return { decision: parseReview(choice.message.content), usage: accounting };
   } catch (error) {
+    console.log(JSON.stringify({ event: 'review_failed', stage, upstreamStatus,
+      errorType: error instanceof Error ? error.name : 'unknown' }));
     if (error instanceof InferenceError) throw error;
     throw new InferenceError(signal.aborted ? 504 : 502, signal.aborted ? 'answer_timeout' : 'answer_unavailable', accounting, generationID);
   }
 }
 
 export async function reviewedAnswer(db: D1Database, reservationID: string, messages: Message[], apiKey: string,
-  userID: string, signal: AbortSignal, generate: () => Promise<AnswerGeneration>): Promise<AnswerGeneration> {
+  userID: string, signal: AbortSignal, generate: () => Promise<AnswerGeneration>, allowFallback = true): Promise<AnswerGeneration> {
   const review = await reviewRequest(messages, apiKey, userID, signal, async id => {
     await db.prepare("UPDATE usage_requests SET generation_id = ? WHERE id = ? AND status = 'reserved'").bind(id, reservationID).run();
-  });
+  }, allowFallback);
   if (review.decision !== 'answer') return { text: POLICY_RESPONSES[review.decision], usage: review.usage };
   // Checkpoint the first call before starting another. Settlement and reconciliation
   // add these costs exactly once; generation_id now belongs to the answer call.

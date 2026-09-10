@@ -598,7 +598,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Untitled Faith/UntitledFaith.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = BZT8F2M765;
 				FAITH_API_BASE_URL = "https://untitled-faith-proxy.vendors-c0f.workers.dev";
 				GENERATE_INFOPLIST_FILE = YES;
@@ -611,7 +611,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lukefournier.UntitledFaith;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -627,7 +627,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Untitled Faith/UntitledFaith.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = BZT8F2M765;
 				FAITH_API_BASE_URL = "https://untitled-faith-proxy.vendors-c0f.workers.dev";
 				GENERATE_INFOPLIST_FILE = YES;
@@ -640,7 +640,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lukefournier.UntitledFaith;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;

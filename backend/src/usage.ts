@@ -16,6 +16,7 @@ export async function reserveUsage(db: D1Database, userID: string, key: string, 
   await db.prepare("INSERT INTO free_months(month, budget_micros) VALUES (?, ?) ON CONFLICT(month) DO NOTHING")
     .bind(month, FREE_MONTHLY_CASH_MICROS).run();
   const id = crypto.randomUUID();
+  let freeFailure: string | undefined;
   for (const funding of ["free", "paid"] as const) {
     try {
       await db.prepare(`INSERT INTO usage_requests
@@ -25,7 +26,19 @@ export async function reserveUsage(db: D1Database, userID: string, key: string, 
       return { id, funding, reservedMicros: amount };
     } catch (error) {
       const code = errorCode(error);
-      if (funding === "free" && (code === "free_allowance_exhausted" || code === "free_pool_exhausted")) continue;
+      if (funding === "free" && (code === "free_allowance_exhausted" || code === "free_pool_exhausted")) {
+        freeFailure = code;
+        continue;
+      }
+      if (code === "insufficient_funding" && freeFailure) {
+        if (freeFailure === "free_pool_exhausted") throw new APIError(402, "free_pool_exhausted");
+        const counts = await db.prepare(`SELECT COUNT(*) AS monthly,
+          COALESCE(SUM(day = ?), 0) AS daily FROM usage_requests
+          WHERE user_id = ? AND month = ? AND funding = 'free' AND status != 'released'`)
+          .bind(day, userID, month).first<{ monthly: number; daily: number }>();
+        if ((counts?.monthly ?? 0) >= FREE_MONTHLY_QUESTIONS) throw new APIError(402, "monthly_free_limit");
+        if ((counts?.daily ?? 0) >= FREE_DAILY_QUESTIONS) throw new APIError(402, "daily_free_limit");
+      }
       if (code) throw new APIError(code === "account_missing" ? 401 : code === "insufficient_funding" ? 402 : 409, code);
       throw error;
     }
@@ -85,6 +98,7 @@ export async function usageSummary(db: D1Database, userID: string, now = new Dat
   const remainingPercent = Math.max(0, Math.min(100, Math.floor(displayRemaining * 100 / displayCapacity)));
   return { month, resetsAt, remainingPercent, currency: "USD", appAccountToken: account.app_account_token,
     free: { dailyLimit: FREE_DAILY_QUESTIONS, monthlyLimit: FREE_MONTHLY_QUESTIONS,
+      resetsAt: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString(),
       usedToday: counts?.free_used_today ?? 0, usedThisMonth: counts?.free_used ?? 0,
       remainingToday: Math.max(0, FREE_DAILY_QUESTIONS - (counts?.free_used_today ?? 0)),
       remainingThisMonth: Math.max(0, FREE_MONTHLY_QUESTIONS - (counts?.free_used ?? 0)) },

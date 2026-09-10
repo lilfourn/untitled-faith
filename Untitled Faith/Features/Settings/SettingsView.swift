@@ -36,6 +36,10 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity, minHeight: 48)
                         }
                         .disabled(!session.isSignedIn || session.isDeletingAccount)
+
+                        Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"))")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(24)
                     .frame(maxWidth: 520)

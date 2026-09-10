@@ -28,6 +28,7 @@ struct LegalDocumentView: View {
                             Link("OpenRouter Data Collection", destination: URL(string: "https://openrouter.ai/docs/guides/privacy/data-collection")!)
                             Link("Model Provider Data Policies", destination: URL(string: "https://openrouter.ai/docs/guides/privacy/provider-logging")!)
                             Link("Google Privacy Policy", destination: URL(string: "https://policies.google.com/privacy")!)
+                            Link("OpenAI Privacy Policy", destination: URL(string: "https://openai.com/policies/privacy-policy/")!)
                             Link("Cloudflare Privacy Policy", destination: URL(string: "https://www.cloudflare.com/privacypolicy/")!)
                         }
                         .font(.subheadline)

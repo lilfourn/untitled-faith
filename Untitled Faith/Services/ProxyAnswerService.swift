@@ -1,7 +1,7 @@
 import Foundation
 
 struct ProxyAnswerService: AnswerService {
-    static let consentVersion = "2026-09-09-openrouter-google"
+    static let consentVersion = "2026-09-09-openrouter-fallbacks"
     let endpoint: URL
     let accessToken: @MainActor () async throws -> String
     let hasConsent: @MainActor () -> Bool
@@ -22,16 +22,8 @@ struct ProxyAnswerService: AnswerService {
             let (data, response) = try await session.data(for: request)
             try Task.checkCancellation()
             guard let response = response as? HTTPURLResponse else { throw AnswerServiceError.invalidResponse }
-            switch response.statusCode {
-            case 200: break
-            case 401: throw AnswerServiceError.signInRequired
-            case 402: throw AnswerServiceError.fundingRequired
-            case 409: throw AnswerServiceError.requestConflict
-            case 403: throw AnswerServiceError.consentRequired
-            case 413: throw AnswerServiceError.conversationTooLong
-            case 429: throw AnswerServiceError.rateLimited
-            case 504: throw AnswerServiceError.timedOut
-            default: throw AnswerServiceError.unavailable
+            guard response.statusCode == 200 else {
+                throw Self.failure(status: response.statusCode, data: data)
             }
             guard data.count <= 128 * 1024,
                   let result = try? JSONDecoder().decode(AnswerResponse.self, from: data) else {
@@ -41,6 +33,28 @@ struct ProxyAnswerService: AnswerService {
         } catch let error as URLError {
             if error.code == .cancelled { throw CancellationError() }
             throw error.code == .timedOut ? AnswerServiceError.timedOut : AnswerServiceError.unavailable
+        }
+    }
+
+    static func failure(status: Int, data: Data? = nil) -> AnswerServiceError {
+        let code = data.flatMap { data in
+            data.count <= 16 * 1024 ? (try? JSONDecoder().decode(FailureResponse.self, from: data))?.error.code : nil
+        }
+        switch status {
+        case 401: return .signInRequired
+        case 402:
+            switch code {
+            case "daily_free_limit": return .dailyFreeLimit
+            case "monthly_free_limit": return .monthlyFreeLimit
+            case "free_pool_exhausted": return .freePoolUnavailable
+            default: return .fundingRequired
+            }
+        case 409: return .requestConflict
+        case 403: return .consentRequired
+        case 413: return .conversationTooLong
+        case 429: return .rateLimited
+        case 504: return .timedOut
+        default: return code == "sources_unavailable" ? .sourcesUnavailable : .unavailable
         }
     }
 
@@ -108,4 +122,9 @@ private final class RejectRedirects: NSObject, URLSessionTaskDelegate, @unchecke
                     completionHandler: @escaping (URLRequest?) -> Void) {
         completionHandler(nil)
     }
+}
+
+private struct FailureResponse: Decodable {
+    let error: Failure
+    struct Failure: Decodable { let code: String }
 }

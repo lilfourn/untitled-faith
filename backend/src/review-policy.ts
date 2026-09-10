@@ -1,7 +1,13 @@
+import type { ModelRoute } from './model-routing';
 import { TOPIC_SAFETY_POLICY, POLICY_RESPONSES } from './content-policy';
 
-// Independent of the answer model, using the same approved provider families.
+// Independent models for review, including when the answer falls back.
 export const REVIEW_MODEL = 'google/gemini-2.5-flash-lite';
+export const REVIEW_ROUTES = [
+  { model: REVIEW_MODEL, providers: ['google-ai-studio', 'google-vertex'], reasoning: { enabled: false } },
+  // A separate, non-reasoning reviewer within the existing price caps.
+  { model: 'openai/gpt-4.1-nano', providers: ['openai'] },
+] as const satisfies readonly [ModelRoute, ...ModelRoute[]];
 export const REVIEW_INPUT_PRICE = 0.2;
 export const REVIEW_OUTPUT_PRICE = 0.8;
 export const REVIEW_MAX_TOKENS = 128;

@@ -1,8 +1,8 @@
 import { reviewedAnswer } from './request-review';
 import { authenticate } from "./auth";
 import { handleAppleAuth } from "./apple-auth";
-import { MAX_REQUEST_BYTES, parseAnswerRequest } from "./contract";
-import { APIError, jsonResponse, readJSON } from "./http";
+import { CONSENT_VERSION, MAX_REQUEST_BYTES, parseAnswerRequest } from "./contract";
+import { APIError, isRecord, jsonResponse, readJSON } from "./http";
 import { generateAnswer, InferenceError } from "./openrouter";
 import { requireAccount } from "./accounts";
 import { reservationMicros } from "./billing-policy";
@@ -42,19 +42,22 @@ export default {
       if (request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
         throw new APIError(415, "invalid_request");
       }
-      const messages = parseAnswerRequest(await readJSON(request.body, MAX_REQUEST_BYTES));
+      const body = await readJSON(request.body, MAX_REQUEST_BYTES);
+      const messages = parseAnswerRequest(body);
+      // Older apps disclose Google only; retain their original routing until they update.
+      const allowFallback = isRecord(body) && body.consentVersion === CONSENT_VERSION;
       const idempotencyKey = request.headers.get("Idempotency-Key");
       if (!idempotencyKey || !/^[a-zA-Z0-9_-]{16,128}$/.test(idempotencyKey)) throw new APIError(400, "idempotency_key_required");
       const bibleContext = await prepareBible(messages, env as PassageEnv, userID, request.signal);
       const reservation = await reserveUsage(env.DB, userID, idempotencyKey, reservationMicros(messages, account.first_name, bibleContext));
       if (request.headers.get("Accept")?.split(",").some(value => value.trim() === "text/event-stream")) {
-        return answerStream(request, env, messages, userID, reservation.id, requestID, ctx, account.first_name, bibleContext);
+        return answerStream(request, env, messages, userID, reservation.id, requestID, ctx, account.first_name, bibleContext, allowFallback);
       }
       const signal = AbortSignal.any([request.signal, AbortSignal.timeout(45000)]);
       let result;
       try {
         result = await reviewedAnswer(env.DB, reservation.id, messages, env.OPENROUTER_API_KEY, userID, signal,
-          () => generateAnswer(messages, env.OPENROUTER_API_KEY, userID, signal, account.first_name, bibleContext, true));
+          () => generateAnswer(messages, env.OPENROUTER_API_KEY, userID, signal, account.first_name, bibleContext, true, allowFallback), allowFallback);
       } catch (error) {
         if (error instanceof InferenceError && error.accounting === "unbilled") await releaseUsage(env.DB, reservation.id);
         else if (error instanceof InferenceError && typeof error.accounting === "object") await settleUsage(env.DB, reservation.id, error.accounting);

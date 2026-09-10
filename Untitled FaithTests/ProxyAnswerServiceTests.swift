@@ -87,6 +87,23 @@ final class ProxyAnswerServiceTests: XCTestCase {
         }
     }
 
+    func testPreservesAllowanceFailureReasonsForJSONAndStreaming() async {
+        for (code, expected) in [("daily_free_limit", AnswerServiceError.dailyFreeLimit),
+                                 ("monthly_free_limit", .monthlyFreeLimit), ("free_pool_exhausted", .freePoolUnavailable)] {
+            for stream in [false, true] {
+                let client = service(status: 402, body: "{\"error\":{\"code\":\"\(code)\"}}")
+                do {
+                    let messages: [ChatMessage] = [.question(id: UUID(), text: "Question")]
+                    if stream { _ = try await client.streamAnswer(for: messages) { _ in } }
+                    else { _ = try await client.answer(for: messages) }
+                    XCTFail("Expected allowance error")
+                } catch {
+                    XCTAssertEqual(error.localizedDescription, expected.localizedDescription)
+                }
+            }
+        }
+    }
+
     func testRejectsMalformedAndUnverifiedAnswers() async {
         for body in [#"{"answer":{"text":"","scripture":[],"commentary":[]}}"#,
                      #"{"answer":{"text":"Answer","scripture":["unverified citation"],"commentary":[]}}"#,

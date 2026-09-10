@@ -33,7 +33,7 @@ A cron every 15 minutes checks uncertain requests with a provider generation ID 
 
 ## App display
 
-`GET /v1/me/usage` returns only the authenticated account's summary. Settings shows **one progress bar and the percentage remaining**; it does not display dollar balances, token counts, or question counts.
+`GET /v1/me/usage` returns only the authenticated account's summary. Settings shows a monthly progress bar and percentage, plus separate remaining daily/monthly free-request counts. When a free limit is reached, it shows the relevant reset time in the device's local timezone. It does not display dollar balances or token counts. The September 9 update also distinguishes daily, monthly, and shared-pool failures when paid funding cannot cover a request; see [validation and release status](CHAT.md#cheaper-fallback-and-allowance-clarity).
 
 For a single bar covering both free questions and personal funding, the percentage is a display-only normalization: each free question has the planning weight of $0.02 plus the 5.5% acquisition fee; paid funding uses its actual available value. The denominator includes the month's starting paid balance, net added funding, and the full free allowance. The percentage is approximate; it never authorizes spending, bypasses daily limits, or guarantees the shared pool remains available.
 

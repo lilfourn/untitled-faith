@@ -10,6 +10,7 @@ struct ChatView: View {
     @State private var showingPhotoLoadError = false
     @State private var showingHistory = false
     @State private var followingAnswer = true
+    @FocusState private var composerFocused: Bool
     @State private var sendTask: Task<Void, Never>?
 
     private let suggestions = [
@@ -46,6 +47,10 @@ struct ChatView: View {
                                 .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 16))
                                 .accessibilityIdentifier("chat-service-notice")
                         }
+                        if store.canRetry {
+                            Button("Retry answer", systemImage: "arrow.clockwise") { sendQuestion(retrying: true) }
+                                .accessibilityIdentifier("retry-answer")
+                        }
                         if let error = store.storageError {
                             Label(error, systemImage: "exclamationmark.triangle")
                                 .font(.footnote)
@@ -69,6 +74,9 @@ struct ChatView: View {
                 }
                 .simultaneousGesture(DragGesture().onChanged { _ in followingAnswer = false })
                 .onChange(of: store.conversation.messages.count) {
+                    if followingAnswer { proxy.scrollTo("bottom", anchor: .bottom) }
+                }
+                .onChange(of: store.errorMessage) {
                     if followingAnswer { proxy.scrollTo("bottom", anchor: .bottom) }
                 }
                 .onChange(of: store.revealProgress) {
@@ -98,13 +106,19 @@ struct ChatView: View {
                     settingsToolbarItem
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack {
-                        Button("Conversations", systemImage: "clock.arrow.circlepath") { showingHistory = true }
-                            .disabled(store.isSending)
-                        Button("New conversation", systemImage: "square.and.pencil") {
+                    HStack(spacing: 0) {
+                        Button { showingHistory = true } label: {
+                            toolbarIcon("clock.arrow.circlepath")
+                        }
+                        .accessibilityLabel("Conversations")
+                        .disabled(store.isSending)
+                        Button {
                             store.newConversation()
                             followingAnswer = true
+                        } label: {
+                            toolbarIcon("square.and.pencil")
                         }
+                        .accessibilityLabel("New conversation")
                         .disabled(store.conversation.messages.isEmpty || store.isSending)
                     }
                 }
@@ -134,6 +148,13 @@ struct ChatView: View {
             }
 
         }
+    }
+
+    private func toolbarIcon(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 22, weight: .regular))
+            .frame(width: 44, height: 44, alignment: .center)
+            .contentShape(Rectangle())
     }
 
     private var settingsToolbarItem: some ToolbarContent {
@@ -211,8 +232,12 @@ struct ChatView: View {
 
     private var inputBar: some View {
         let isActive = store.isSending || store.canSend
+        let revision = store.draftRevision
+        let draft = Binding(get: { store.draft }, set: { store.updateDraft($0, revision: revision) })
         return HStack(alignment: .bottom, spacing: 8) {
-            TextField("Ask a question…", text: $store.draft, axis: .vertical)
+            TextField("Ask a question…", text: draft, axis: .vertical)
+                .id(revision)
+                .focused($composerFocused)
                 .lineLimit(1...6)
                 .padding(.leading, 20)
                 .padding(.vertical, 15)
@@ -243,9 +268,12 @@ struct ChatView: View {
         }
     }
 
-    private func sendQuestion() {
+    private func sendQuestion(retrying: Bool = false) {
+        guard let task = store.startSend(animate: !reduceMotion && !UIAccessibility.isVoiceOverRunning,
+                                        retrying: retrying) else { return }
         followingAnswer = true
-        sendTask = Task { await store.send(animate: !reduceMotion && !UIAccessibility.isVoiceOverRunning) }
+        composerFocused = false
+        sendTask = task
     }
 }
 

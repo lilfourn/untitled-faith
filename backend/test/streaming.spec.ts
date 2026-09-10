@@ -103,7 +103,7 @@ it.each([
 
 it('settles review cost when answer inference is rejected', async () => {
   upstream.mockResolvedValue(new Response('private rejection', { status: 429 }));
-  expect(await (await worker.fetch(request(), env)).text()).toContain('"type":"error"');
+  expect(await (await worker.fetch(request(), env)).text()).toContain('"error":{"code":"answer_unavailable","status":429}');
   expect((await env.DB.prepare('SELECT status FROM usage_requests').first())?.status).toBe('settled');
 });
 
@@ -155,7 +155,20 @@ it('does not mark an unsupported quotation complete but still accounts for provi
   const body = await (await worker.fetch(request(), env)).text();
   expect(body).toContain('"type":"error"');
   expect(body).not.toContain('"type":"done"');
+  expect(body).toContain('"code":"sources_unavailable"');
   expect(body).not.toContain('Invented quotation');
   expect(body).not.toContain('"type":"delta"');
   expect((await env.DB.prepare('SELECT status FROM usage_requests').first())?.status).toBe('settled');
+});
+
+
+it('treats manual redirects as unbilled and does not forward credentials', async () => {
+  upstream.mockResolvedValue(new Response(null, { status: 307, headers: { Location: 'https://untrusted.example' } }));
+  const body = await (await worker.fetch(request(), env)).text();
+  expect(body).toContain('"type":"error"');
+  expect(body).not.toContain('untrusted.example');
+  expect(upstream).toHaveBeenCalledTimes(1);
+  expect(upstream.mock.calls[0]![1]!.redirect).toBe('manual');
+  expect(await env.DB.prepare('SELECT status, cost_micros FROM usage_requests').first())
+    .toEqual({ status: 'settled', cost_micros: 106 });
 });

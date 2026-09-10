@@ -11,6 +11,7 @@ final class ChatStore {
     private(set) var loadingPhase: LoadingPhase?
     private(set) var revealingMessageID: UUID?
     private(set) var revealProgress: Double?
+    private(set) var draftRevision = UUID()
     var draft = ""
     var errorMessage: String?
     var storageError: String?
@@ -29,27 +30,60 @@ final class ChatStore {
         !isSending && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    var canRetry: Bool {
+        guard !isSending, case .question? = conversation.messages.last else { return false }
+        return true
+    }
+
+    func updateDraft(_ text: String, revision: UUID) {
+        guard revision == draftRevision else { return }
+        draft = text
+    }
+
     func send(animate: Bool = true) async {
-        guard canSend else { return }
-        let question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !Task.isCancelled, let task = startSend(animate: animate) else { return }
+        await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    /// Accept and save synchronously, before yielding to the network or keyboard callbacks.
+    func startSend(animate: Bool = true, retrying: Bool = false) -> Task<Void, Never>? {
+        guard retrying ? canRetry : canSend else { return nil }
         var next = conversation
-        next.messages.append(.question(id: UUID(), text: question))
+        if retrying, case .question(_, let question)? = next.messages.last {
+            // An explicit retry is a new attempt, without duplicating the displayed question.
+            // Keep this ID stable for the entire attempt so transport cannot double-submit it.
+            next.messages[next.messages.count - 1] = .question(id: UUID(), text: question)
+        } else {
+            let question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+            next.messages.append(.question(id: UUID(), text: question))
+        }
         next.updatedAt = Date()
         do {
             _ = try ProxyAnswerService.context(from: next.messages)
             try storage?.save(next)
         } catch {
             errorMessage = error is AnswerServiceError ? error.localizedDescription : "We couldn’t save this conversation on your phone. Your question hasn’t been sent."
-            return
+            return nil
         }
         conversation = next
-        draft = ""
+        if !retrying {
+            draft = ""
+            draftRevision = UUID()
+        }
         errorMessage = nil
         storageError = nil
         refreshHistory()
         isSending = true
-        let answerID = UUID()
         loadingPhase = .thinking
+        return Task { await receiveAnswer(animate: animate) }
+    }
+
+    private func receiveAnswer(animate: Bool) async {
+        let answerID = UUID()
         var receivedAnswer = false
         defer {
             isSending = false
@@ -61,6 +95,7 @@ final class ChatStore {
 
         do {
             // Provider deltas only update the status. Display and save a response after final validation.
+            try Task.checkCancellation()
             let messages = conversation.messages
             let answer = try await service.streamAnswer(for: messages) { [weak self] text in
                 guard let self, !text.isEmpty else { return }
@@ -93,6 +128,7 @@ final class ChatStore {
         guard !isSending else { return }
         conversation = Conversation()
         draft = ""
+        draftRevision = UUID()
         errorMessage = nil
     }
 
@@ -101,6 +137,7 @@ final class ChatStore {
         do {
             conversation = try storage.load(id)
             draft = ""
+            draftRevision = UUID()
             errorMessage = nil
         } catch { storageError = "We couldn’t open this saved conversation. It hasn’t been deleted." }
     }

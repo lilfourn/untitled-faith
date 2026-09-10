@@ -7,6 +7,76 @@ final class ChatSessionTests: XCTestCase {
     override func setUp() { root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString) }
     override func tearDown() { try? FileManager.default.removeItem(at: root) }
 
+    func testSubmissionClearsImmediatelyAndIgnoresStaleKeyboardUpdates() async throws {
+        let service = RecordingAnswerService()
+        let store = ChatStore(service: service)
+        store.draft = "  Question  "
+        let revision = store.draftRevision
+        let task = try XCTUnwrap(store.startSend(animate: false))
+        XCTAssertEqual(store.draft, "")
+        XCTAssertTrue(store.isSending)
+        XCTAssertEqual(store.conversation.messages.map(\.text), ["Question"])
+        store.updateDraft("  Question  ", revision: revision)
+        XCTAssertEqual(store.draft, "")
+        store.updateDraft("Next question", revision: store.draftRevision)
+        XCTAssertNil(store.startSend(animate: false))
+        await task.value
+        XCTAssertEqual(service.requests.count, 1)
+        XCTAssertEqual(store.draft, "Next question")
+    }
+
+    func testRetryRestoresUnansweredQuestionWithoutDuplicatingItOrClearingNewDraft() async throws {
+        let storage = LocalConversationStorage(namespace: "one", root: root)
+        let service = RecordingAnswerService()
+        service.failure = .unavailable
+        let store = ChatStore(service: service, storage: storage)
+        store.draft = "Question"
+        await store.send(animate: false)
+        XCTAssertTrue(store.canRetry)
+        XCTAssertNotNil(store.errorMessage)
+        XCTAssertNil(store.loadingPhase)
+        let originalMessageID = try XCTUnwrap(store.conversation.messages.last?.id)
+        let restored = ChatStore(service: service, storage: storage)
+        restored.openConversation(store.conversation.id)
+        XCTAssertTrue(restored.canRetry)
+        restored.draft = "Next question"
+        service.failure = nil
+        let task = try XCTUnwrap(restored.startSend(animate: false, retrying: true))
+        XCTAssertNil(restored.startSend(animate: false, retrying: true))
+        await task.value
+        XCTAssertEqual(restored.conversation.messages.map(\.text), ["Question", "A streamed answer"])
+        XCTAssertEqual(restored.draft, "Next question")
+        XCTAssertNotEqual(service.requests.last?.last?.id, originalMessageID)
+        XCTAssertEqual(try storage.load(store.conversation.id).messages.count, 2)
+        XCTAssertFalse(restored.canRetry)
+        XCTAssertNil(restored.errorMessage)
+    }
+
+    func testImmediateStopDoesNotStartInference() async throws {
+        let service = RecordingAnswerService()
+        let store = ChatStore(service: service)
+        store.draft = "Question"
+        let task = try XCTUnwrap(store.startSend(animate: false))
+        task.cancel()
+        await task.value
+        XCTAssertTrue(service.requests.isEmpty)
+        XCTAssertFalse(store.isSending)
+        XCTAssertTrue(store.canRetry)
+        XCTAssertEqual(store.errorMessage, "Response stopped.")
+    }
+
+    func testStreamErrorsKeepRateLimitAndSourceFailureMeaning() throws {
+        for (payload, expected) in [
+            (#"{"code":"answer_unavailable","status":429}"#, AnswerServiceError.rateLimited),
+            (#"{"code":"sources_unavailable"}"#, AnswerServiceError.sourcesUnavailable)
+        ] {
+            var parser = AnswerEventParser()
+            XCTAssertThrowsError(try parser.consume("data: {\"type\":\"error\",\"error\":\(payload)}")) {
+                XCTAssertEqual($0.localizedDescription, expected.localizedDescription)
+            }
+        }
+    }
+
     func testStartsFreshAndReopensSavedConversationWithFullContext() async throws {
         let storage = LocalConversationStorage(namespace: "account-one", root: root)
         let service = RecordingAnswerService()
@@ -147,11 +217,13 @@ final class ChatSessionTests: XCTestCase {
 private final class RecordingAnswerService: AnswerService {
     var requests: [[ChatMessage]] = []
     var interrupt = false
+    var failure: AnswerServiceError?
     func answer(for messages: [ChatMessage]) async throws -> FaithAnswer { fatalError("Must stream") }
     func streamAnswer(for messages: [ChatMessage], onUpdate: @escaping @MainActor (String) -> Void) async throws -> FaithAnswer {
         requests.append(messages)
         onUpdate("A streamed")
         if interrupt { throw CancellationError() }
+        if let failure { throw failure }
         onUpdate("A streamed answer")
         return FaithAnswer(text: "A streamed answer", scripture: [], commentary: [])
     }

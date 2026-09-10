@@ -11,7 +11,7 @@ import type { BibleContext } from './bible/types';
 
 export async function streamAnswer(messages: Message[], apiKey: string, userID: string, signal: AbortSignal,
   onGeneration: (id: string) => Promise<void>, firstName: string | null = null,
-  bibleContext: BibleContext = retrieveBible(messages), relevanceVerified = false): Promise<AnswerGeneration> {
+  bibleContext: BibleContext = retrieveBible(messages), relevanceVerified = false, allowFallback = true): Promise<AnswerGeneration> {
   let generationID: string | undefined;
   let accounting: InferenceUsage | 'uncertain' = 'uncertain';
   let text = '';
@@ -20,12 +20,14 @@ export async function streamAnswer(messages: Message[], apiKey: string, userID: 
   let finish: unknown;
   let done = false;
   let stage = 'request';
+  let upstreamStatus: number | undefined;
   try {
-    const response = await requestCompletion(messages, apiKey, userID, signal, true, bibleContext, firstName, relevanceVerified);
+    const response = await requestCompletion(messages, apiKey, userID, signal, true, bibleContext, firstName, relevanceVerified, allowFallback);
+    upstreamStatus = response.status;
     if (!response.ok) {
       await response.body?.cancel();
       throw new InferenceError(response.status === 429 ? 429 : 502, 'answer_unavailable',
-        [400, 401, 402, 403, 404, 413, 422, 429].includes(response.status) ? 'unbilled' : 'uncertain');
+        ((response.status >= 300 && response.status < 400) || [400, 401, 402, 403, 404, 413, 422, 429].includes(response.status)) ? 'unbilled' : 'uncertain');
     }
     if (!response.body) throw new Error('Missing stream');
     const headerID = response.headers.get('X-Generation-Id');
@@ -70,10 +72,10 @@ export async function streamAnswer(messages: Message[], apiKey: string, userID: 
     stage = 'sources';
     return { text: result.text, usage: accounting, ...(result.generated ? sources.finish(result.text) : {}) };
   } catch (error) {
-    console.log(JSON.stringify({ event: 'inference_failed', stage,
+    console.log(JSON.stringify({ event: 'inference_failed', stage, upstreamStatus,
       sourceFailure: error instanceof SourceValidationError ? error.reason : undefined,
       errorType: error instanceof Error ? error.name : 'unknown' }));
     if (error instanceof InferenceError) throw error;
-    throw new InferenceError(signal.aborted ? 504 : 502, signal.aborted ? 'answer_timeout' : 'answer_unavailable', accounting, generationID);
+    throw new InferenceError(signal.aborted ? 504 : 502, signal.aborted ? 'answer_timeout' : error instanceof SourceValidationError ? error.code : 'answer_unavailable', accounting, generationID);
   }
 }

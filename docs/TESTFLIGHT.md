@@ -13,6 +13,7 @@ Untitled Faith uses internal TestFlight testing for Luke's phone and a private e
 
 ```sh
 ./scripts/dev archive
+# For a big update instead: ./scripts/dev archive big
 # Use the exact archive path printed by that command:
 ./scripts/dev upload 'DerivedData/Archives/Untitled Faith-<timestamp>-<build>.xcarchive'
 ```
@@ -25,11 +26,18 @@ Xcode must be signed in to the configured Apple Developer team. If archiving rep
 
 ## Automatic versioning
 
-`./scripts/dev archive` reserves the next integer build number under the iOS lock. It reads the counter in `.dev/last-build-number` and existing local archives, then chooses a number greater than both. Failed builds consume a number; gaps are harmless. A manual override is available as `./scripts/dev archive 25`, but it must exceed the existing local numbers. The current integer format supports 1–9999.
+Every new `./scripts/dev archive` advances the visible version and reserves a build number under the iOS lock. Luke's small/big update convention uses Apple's three-component version format:
+
+- `./scripts/dev archive` (or `archive minor`): small update, `1.0` → `1.0.1` → `1.0.2`.
+- `./scripts/dev archive big`: big update, `1.0.2` → `1.1.0`, resetting the patch component.
+
+The script updates `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml` before generating Xcode's project. Commit these generated release-setting changes with the release. It also checks existing local archives to avoid moving backwards after switching checkouts. Version components are integers: `1.0.9` advances to `1.0.10`. Ordinary builds and runs do not advance the version. Uploading or retrying the same archive preserves its visible version; create a new archive for changed code. Failed archives consume their reserved version and build; gaps are harmless.
+
+Build numbers still increase independently. The script reads `.dev/last-build-number` and existing local archives, choosing a number greater than both. A manual build override is available as `./scripts/dev archive minor 25` (legacy `archive 25` also works), but it must exceed existing local numbers. The integer format supports 1–9999.
 
 Xcode manages the final build number during upload to avoid collisions with builds uploaded from other machines. A local counter alone cannot know about remote uploads. If using Organizer instead of the upload command, keep **Manage version and build numbers** enabled.
 
-The public version stays at `MARKETING_VERSION` in `project.yml` (currently `1.0`); change it deliberately for a new product release. Both version fields in the generated Info.plist now reference build settings, so overrides reach the actual app bundle. Do not edit generated version strings in Xcode or `Configuration/Info.plist` directly.
+Both version fields in the generated Info.plist reference build settings. Archiving checks the actual app bundle against the reserved version and build and fails if they differ. Settings displays the installed version and build to help identify updates. Do not edit generated version strings in Xcode or `Configuration/Info.plist` directly. Verify the numbering helper locally with `python3 -B scripts/test-release-version.py`; this does not run iOS tests or access the simulator.
 
 ## Install and verify
 
@@ -52,6 +60,25 @@ On September 9, 2026, Caroline was added as the sole tester in the private **Fri
 Archive: `DerivedData/Archives/Untitled Faith-20260909-194947-4.xcarchive`. Successful upload log: `.dev/logs/testflight-upload-20260909-195028-30144.log`. Signed archiving, build `4`, the bundled exempt-encryption declaration, and export options were verified. Review contact details were supplied by Luke and saved in App Store Connect. Review notes explicitly describe native Sign in with Apple and automatic app-account creation; there is no separate app username/password or shared demo account. If Apple requests another review-access method, resolve that request before resubmitting.
 
 Next action: check Apple's beta review result. External testers cannot install until approval. Internal testing remains available while external review is pending.
+
+## Reliability update 1.0.1
+
+On September 9, 2026, version **1.0.1 (build 6)** uploaded successfully to App Store Connect. This is a
+patch release with prompt clearing, retry for unanswered questions, cheaper provider fallback, clearer
+daily/monthly allowance display, specific backend errors, and evenly sized chat toolbar icons. It also
+includes the automatic patch-version release workflow and installed version/build display in Settings.
+
+Archive: `DerivedData/Archives/Untitled Faith-20260909-210225-6.xcarchive`.
+Archive log: `.dev/logs/archive-20260909-210225-15224.log`.
+Upload log: `.dev/logs/testflight-upload-20260909-210428-16531.log`.
+The actual archive version/build, Apple sign-in, and Keychain identity were verified. Six local release
+versioning tests and all 252 backend tests passed. No iOS tests, simulator UI automation, or paid inference
+were run. The matching backend was deployed before upload, retaining existing secrets and supporting
+older clients as well as the updated provider disclosure.
+
+Apple accepted the upload; processing completion and device installation have not been verified.
+Personal Testing has automatic distribution enabled. This upload does not submit the new build to
+external beta review or publish an App Store release.
 
 ## References
 

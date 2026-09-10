@@ -60,7 +60,11 @@ describe("persistent accounts, quotas, and personal funding", () => {
   it("enforces five daily free requests, then consumes only personal funding", async () => {
     const account = await newAccount();
     for (let i = 0; i < 5; i++) await settleUsage(env.DB, (await reserve(account.id)).id, bill);
-    await expect(reserve(account.id)).rejects.toMatchObject({ status: 402, code: "insufficient_funding" });
+    await expect(reserve(account.id)).rejects.toMatchObject({ status: 402, code: "daily_free_limit" });
+    const beforeFunding = await usageSummary(env.DB, account.id, now);
+    expect(beforeFunding.free).toMatchObject({ remainingToday: 0, remainingThisMonth: 25,
+      resetsAt: '2026-09-10T00:00:00.000Z' });
+    expect(beforeFunding.remainingPercent).toBe(83);
     await fund(account.id);
     const paid = await reserve(account.id);
     expect(paid.funding).toBe("paid");
@@ -87,6 +91,17 @@ describe("persistent accounts, quotas, and personal funding", () => {
     expect(next.funding).toBe("free");
     expect((await usageSummary(env.DB, account.id, new Date("2026-10-01"))).free.usedThisMonth).toBe(1);
     expect((await requireAccount(env.DB, account.id)).paid_balance_micros).toBe(4_250_000);
+  });
+
+  it("identifies the monthly limit even when a new day has free daily slots", async () => {
+    const account = await newAccount();
+    for (let day = 1; day <= 6; day++) {
+      for (let question = 0; question < 5; question++) {
+        await settleUsage(env.DB, (await reserve(account.id, new Date(`2026-09-0${day}T12:00:00Z`))).id, bill);
+      }
+    }
+    await expect(reserve(account.id, new Date('2026-09-07T12:00:00Z')))
+      .rejects.toMatchObject({ status: 402, code: 'monthly_free_limit' });
   });
 
   it("atomically rejects concurrent requests for the same account", async () => {
@@ -149,7 +164,7 @@ describe("persistent accounts, quotas, and personal funding", () => {
     await reverseContribution(env.DB, payment.provider, payment.transactionID);
     await reverseContribution(env.DB, payment.provider, payment.transactionID);
     expect((await requireAccount(env.DB, account.id)).paid_balance_micros).toBe(-2000);
-    await expect(reserve(account.id)).rejects.toMatchObject({ code: "insufficient_funding" });
+    await expect(reserve(account.id)).rejects.toMatchObject({ code: "free_pool_exhausted" });
   });
 
   it("deletes an empty account, invalidates access, and unlinks settled accounting", async () => {
