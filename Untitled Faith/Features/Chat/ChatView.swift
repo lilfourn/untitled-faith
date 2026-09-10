@@ -134,6 +134,9 @@ struct ChatView: View {
                     await sendTask?.value
                 })
             }
+            .onChange(of: store.isSending) {
+                if !store.isSending { session.refreshUsage(force: true) }
+            }
             .onChange(of: session.aiSharingAllowed) {
                 if !session.aiSharingAllowed { sendTask?.cancel() }
             }

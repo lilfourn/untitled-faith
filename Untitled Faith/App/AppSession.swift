@@ -13,7 +13,9 @@ final class AppSession {
     var aiSharingAllowed: Bool {
         didSet { preferences.set(aiSharingAllowed, forKey: "aiAnswersEnabled") }
     }
+    let accountUsage: AccountUsageStore
     private let preferences: UserDefaults
+    private let usageService: AccountUsageService?
     private let keychain = AuthenticationKeychain()
     private var attempt: AppleSignInAttempt?
     private var generation = UUID()
@@ -23,10 +25,18 @@ final class AppSession {
     var isSignedIn: Bool { authentication != nil }
     var canSignIn: Bool { AuthenticationAPI.configured() != nil && !isSigningIn && !isRestoring }
 
-    func loadUsage() async throws -> AccountUsage {
-        guard let api = AuthenticationAPI.configured() else { throw AnswerServiceError.notConnected }
+    func refreshUsage(force: Bool = false) {
+        guard isSignedIn, !isPreview, !isDeletingAccount else { return }
+        accountUsage.refresh(force: force) { [weak self] in
+            guard let self else { throw CancellationError() }
+            return try await self.loadUsage()
+        }
+    }
+
+    private func loadUsage() async throws -> AccountUsage {
+        guard let usageService else { throw AnswerServiceError.notConnected }
         let token = try await validAccessToken()
-        return try await AccountUsageService(baseURL: api.baseURL).load(accessToken: token)
+        return try await usageService.load(accessToken: token)
     }
 
     func makeConversationStorage() -> LocalConversationStorage {
@@ -83,6 +93,8 @@ final class AppSession {
 
     init(preferences: UserDefaults = .standard) {
         self.preferences = preferences
+        accountUsage = AccountUsageStore(preferences: preferences)
+        usageService = AuthenticationAPI.configured().map { AccountUsageService(baseURL: $0.baseURL) }
         aiSharingAllowed = preferences.object(forKey: "aiAnswersEnabled") as? Bool ?? true
         #if DEBUG
         isPreview = ProcessInfo.processInfo.arguments.contains("--preview-chat")
@@ -120,6 +132,8 @@ final class AppSession {
                     try keychain.save(stored)
                     authentication = stored
                     isPreview = false
+                    accountUsage.activate(namespace: localStorageNamespace)
+                    refreshUsage(force: true)
                 } catch {
                     if generation == currentGeneration { signInError = error.localizedDescription }
                 }
@@ -152,10 +166,13 @@ final class AppSession {
                 return
             }
             authentication = stored
+            accountUsage.activate(namespace: localStorageNamespace)
             _ = try await validAccessToken()
+            refreshUsage(force: true)
         } catch {
             guard generation == currentGeneration else { return }
             authentication = nil
+            accountUsage.clear()
             signInError = error.localizedDescription
         }
     }
@@ -204,6 +221,7 @@ final class AppSession {
 
     func signOut() {
         generation = UUID()
+        accountUsage.clear()
         refreshTask?.cancel()
         refreshTask = nil
         attempt = nil
@@ -227,6 +245,7 @@ final class AppSession {
             catch { signInError = "Your account was deleted, but saved conversations couldn’t be removed from this device. Removing the app will clear its local data." }
             do { try makeProfilePhotoStorage().delete() }
             catch { signInError = "Your account was deleted, but some saved data couldn’t be removed from this device. Removing the app will clear its local data." }
+            accountUsage.clear(removeCached: true)
             signOut()
         } catch {
             if generation == currentGeneration { signInError = error.localizedDescription }

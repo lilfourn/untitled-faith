@@ -195,3 +195,11 @@ answer with two verified quotations in 7.8 seconds; production logs confirmed su
 status 200. The temporary verification account settled and was removed. See the current
 [deployment record](../backend/DEPLOYMENT.md) for version, logs, and costs. No iOS test suite or simulator
 UI automation was run for this backend-only update.
+
+## Clearer explanations
+
+The shared system prompt now includes [teaching guidance](../backend/src/teaching-style.ts) for explaining
+one idea at a time, defining theological terms, connecting passages to conclusions, and separating biblical
+text from interpretation and application. It preserves Scripture as the sole final doctrinal authority
+and applies the same fallibility standard to all outside commentary. See [research and review cases](EXPLANATIONS.md)
+for the rationale and the distinction between code checks and live teaching-quality evaluation.

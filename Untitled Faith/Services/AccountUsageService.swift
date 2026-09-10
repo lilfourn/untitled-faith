@@ -1,6 +1,6 @@
 import Foundation
 
-struct AccountUsage: Decodable {
+struct AccountUsage: Codable {
     let month: String
     let resetsAt: String
     let currency: String
@@ -10,17 +10,17 @@ struct AccountUsage: Decodable {
     let funding: Funding
     let usage: Usage
 
-    struct FreeAllowance: Decodable {
+    struct FreeAllowance: Codable {
         let monthlyLimit: Int
         let usedThisMonth: Int
         let remainingThisMonth: Int
     }
-    struct Funding: Decodable {
+    struct Funding: Codable {
         let balanceMicros: Int64
         let reservedMicros: Int64
         let availableMicros: Int64
     }
-    struct Usage: Decodable {
+    struct Usage: Codable {
         let totalRequests: Int
         let pendingRequests: Int
         let promptTokens: Int

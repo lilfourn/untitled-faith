@@ -50,7 +50,7 @@ struct SettingsView: View {
                 .background(AppTheme.background)
             }
             .navigationTitle("Settings")
-            .fullScreenCover(isPresented: $showingContribution) { ContributionWizard() }
+            .fullScreenCover(isPresented: $showingContribution, onDismiss: { session.refreshUsage(force: true) }) { ContributionWizard() }
             .navigationBarTitleDisplayMode(.inline)
             .confirmationDialog("Delete your account? This removes this device’s saved conversations, profile photo, and sign-in session, and revokes Untitled Faith’s access to your Apple sign-in.", isPresented: $confirmingDeletion, titleVisibility: .visible) {
                 Button("Delete account", role: .destructive) {
