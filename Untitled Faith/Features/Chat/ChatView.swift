@@ -105,18 +105,23 @@ struct ChatView: View {
                 } else {
                     settingsToolbarItem
                 }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("Conversations", systemImage: "clock") {
-                        showingHistory = true
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 0) {
+                        Button { showingHistory = true } label: {
+                            compactToolbarIcon("clock")
+                        }
+                        .accessibilityLabel("Conversations")
+                        .disabled(store.isSending)
+                        Button {
+                            store.newConversation()
+                            followingAnswer = true
+                        } label: {
+                            compactToolbarIcon("square.and.pencil")
+                        }
+                        .accessibilityLabel("New conversation")
+                        .disabled(store.conversation.messages.isEmpty || store.isSending)
                     }
-                    .labelStyle(.iconOnly)
-                    .disabled(store.isSending)
-                    Button("New conversation", systemImage: "square.and.pencil") {
-                        store.newConversation()
-                        followingAnswer = true
-                    }
-                    .labelStyle(.iconOnly)
-                    .disabled(store.conversation.messages.isEmpty || store.isSending)
+                    .buttonStyle(.plain)
                 }
             }
             .safeAreaInset(edge: .bottom) { composer }
@@ -144,6 +149,13 @@ struct ChatView: View {
             }
 
         }
+    }
+
+    private func compactToolbarIcon(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.body)
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
     }
 
     private var settingsToolbarItem: some ToolbarContent {

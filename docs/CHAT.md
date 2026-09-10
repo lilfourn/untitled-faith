@@ -164,3 +164,9 @@ new conversation uses the standard `square.and.pencil`; iOS supplies sizing, spa
 presentation. Signed Release archiving and TestFlight upload passed. Phone rendering and Apple processing
 were not verified; no iOS tests or simulator UI automation were run. See
 [release details](TESTFLIGHT.md#native-toolbar-update-103).
+
+
+Version **1.0.4 (9)** tightens the spacing requested after 1.0.3: history and compose share one toolbar
+item, a zero-spacing HStack, and plain button styling. The SF Symbols use semantic body size inside
+44×44 hit regions. Signed Release archive and TestFlight upload passed; phone appearance and Apple
+processing were not verified. See [release details](TESTFLIGHT.md#compact-toolbar-update-104).

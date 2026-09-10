@@ -112,6 +112,20 @@ Apple accepted the upload for processing. No iOS tests or simulator UI automatio
 phone appearance/processing completion have not been verified. This client-only change required no
 backend deployment. Personal Testing retains automatic distribution; external beta review is separate.
 
+## Compact toolbar update 1.0.4
+
+On September 9, 2026, version **1.0.4 (build 9)** uploaded successfully to App Store Connect.
+The user requested tighter spacing between history and compose. Both SF Symbol buttons now share
+one toolbar item with a zero-spacing HStack and plain button style. Semantic body-sized icons retain
+44×44 hit regions, so the controls are compact without returning to the oversized 22-point symbols.
+
+Archive: `DerivedData/Archives/Untitled Faith-20260909-214356-9.xcarchive`.
+Archive log: `.dev/logs/archive-20260909-214356-44613.log`.
+Upload log: `.dev/logs/testflight-upload-20260909-214443-45231.log`.
+Signed Release archiving verified version/build, Apple sign-in, and Keychain identity. Apple accepted
+the upload for processing. Phone rendering and processing completion remain unverified; no iOS tests
+or simulator UI automation were run. No backend deployment was needed.
+
 ## References
 
 - [Apple: Upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
