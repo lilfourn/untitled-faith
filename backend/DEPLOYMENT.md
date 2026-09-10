@@ -2,7 +2,26 @@
 
 Updated September 9, 2026.
 
-The independent-review and Scripture quotation fixes are deployed as version `a78a316f-1a7e-4a8e-b017-c4f29d5867fe`.
+The response-formatting prompt is deployed as version `98170bc5-0180-4ace-80eb-c4a5d0525b17`.
+It asks for short paragraphs, bullet lists, numbered steps, selective bold and italics, and headings in
+longer answers, while keeping verified quotations verbatim. `./scripts/dev check` passed the Bible index,
+type checks, 231 backend tests, and deployment dry run (`.dev/logs/backend-tests-20260909-192654-98626.log`).
+Deployment used `wrangler deploy --keep-vars --strict` (`.dev/logs/deploy-response-formatting-20260909.log`).
+The deployed health endpoint returned `{"status":"ok"}`.
+The signed app was rebuilt, installed, and opened with ESV-only home verses and increased Markdown spacing
+(`.dev/logs/build-Debug-20260909-192730-2196.log`). No iOS test suite, simulator UI automation, or paid inference
+check was run for this update; manual signed-in presentation verification remains outstanding.
+
+The preceding writing-style prompt was deployed as version `5bb83ec1-a837-4cb9-9798-1d66e45fd569`.
+Both answer paths now receive the stop-slop instructions, including no em dashes in generated prose or citation labels.
+Verified quotations retain their original punctuation. Deployment retained remote variables and secrets with
+`wrangler deploy --keep-vars --strict` (`.dev/logs/deploy-writing-style-20260909.log`). The Bible index check,
+type check, 231 backend tests, and deployment dry run passed (`.dev/logs/backend-tests-20260909-191919-81133.log`).
+The deployed health endpoint returned `{"status":"ok"}`. No live inference quality check was run.
+The app was rebuilt, signing verified, installed, and opened with `./scripts/dev run`
+(`.dev/logs/build-Debug-20260909-192015-83646.log`).
+
+The preceding independent-review and Scripture quotation fixes were deployed as version `a78a316f-1a7e-4a8e-b017-c4f29d5867fe`.
 Migration `0005_request_review_usage.sql` was applied first. Deployment used `wrangler deploy --keep-vars --strict`
 and retained existing remote secrets. Review uses a separate Gemini Flash Lite model, full conversation context,
 and accounting checkpoints; verified Scripture quotations no longer have a separate word cap. Bible.com passage
@@ -52,7 +71,7 @@ The prior broader evaluation's intermittent citation/provider failures remain a 
 
 Local validation for first-name personalization: `./scripts/dev check` passed the Bible index check, backend type check, 192 tests, and deployment dry run (`.dev/logs/backend-tests-20260909-183747-59296.log`). `./scripts/dev test` passed 41 signed iOS unit tests and 2 UI tests (`.dev/logs/ios-tests-20260909-183754-59471.log`). `./scripts/dev build` passed with Apple sign-in and Keychain identity verified, including the updated privacy text (`.dev/logs/build-Debug-20260909-183918-62738.log`). Apple and inference endpoints were mocked in those tests; no live name capture or paid inference was performed for that local validation. Implementation touches Apple name-scope capture/exchange, account profile validation and migration, account-backed prompts in both answer paths, reservation sizing, tests, and privacy/setup documentation. Remaining client action: install the new signed app and verify Apple given-name capture when Apple provides it.
 
-The `untitled-faith-proxy` Worker is deployed at `https://untitled-faith-proxy.vendors-c0f.workers.dev` in Cloudflare account `c0f96de71bdc54889c1ad27ccc90dfc0` (`vendors@gridbloom.app`). The current independent-review deployment is version `a78a316f-1a7e-4a8e-b017-c4f29d5867fe`. The preceding ESV-grounding deployment was `a88f23f3-0fa8-4dad-b6c6-b8897e12ffb9`. The preceding moderation deployment was `cd2013c8-f093-48e9-a0f8-f5e95709f55c`. The preceding approved-web-search deployment was `ca6e14d4-a368-430a-bdd2-b51a7780fe14`. The prior streaming deployment was `32ff97f1-0a92-474c-8f03-5ad8fcbfa319`. The preceding account/usage deployment was `8b09e554-6947-42f1-aab4-83ad415eea78`.
+The `untitled-faith-proxy` Worker is deployed at `https://untitled-faith-proxy.vendors-c0f.workers.dev` in Cloudflare account `c0f96de71bdc54889c1ad27ccc90dfc0` (`vendors@gridbloom.app`). The current response-formatting deployment is version `98170bc5-0180-4ace-80eb-c4a5d0525b17`. The preceding writing-style deployment was `5bb83ec1-a837-4cb9-9798-1d66e45fd569`. The preceding independent-review deployment was `a78a316f-1a7e-4a8e-b017-c4f29d5867fe`. The preceding ESV-grounding deployment was `a88f23f3-0fa8-4dad-b6c6-b8897e12ffb9`. The preceding moderation deployment was `cd2013c8-f093-48e9-a0f8-f5e95709f55c`. The preceding approved-web-search deployment was `ca6e14d4-a368-430a-bdd2-b51a7780fe14`. The prior streaming deployment was `32ff97f1-0a92-474c-8f03-5ad8fcbfa319`. The preceding account/usage deployment was `8b09e554-6947-42f1-aab4-83ad415eea78`.
 
 Web-search verification: 94 backend tests, 30 signed iOS unit tests, and 2 iOS UI tests passed. A live request through the deployed `/v1/answers` endpoint returned a GotQuestions quotation matched against the retrieved excerpt, its exact source URL, and commentary formatting metadata. Text streamed in four deltas, with first text at 11.755 seconds and completion at 12.408 seconds. The ledger settled 5,083 prompt tokens, 1,352 completion tokens, and 16,756 micro-USD including search and acquisition fees. The temporary developer account was removed after confirming no pending charges. The native quotation layout was rendered and visually checked; the app was rebuilt and installed with signing verified. Search added no secrets or database migrations. See [approved web search](../docs/WEB_SEARCH.md).
 

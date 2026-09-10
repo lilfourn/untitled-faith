@@ -12,6 +12,7 @@ Use the developer wrapper for repeatable local work:
 ./scripts/dev check        # Backend checks and a deployment dry run
 ./scripts/dev doctor       # Tools, dependencies, permissions, simulator state
 ./scripts/dev auth-check   # Public backend checks without credentials or inference
+./scripts/dev archive      # Signed device archive with an automatic build number
 ./scripts/dev --help
 ```
 
@@ -23,16 +24,18 @@ See [backend setup](backend/README.md) for secrets, deployment, the short-lived 
 
 See [Apple sign-in setup](APPLE_SIGNIN.md) for the configured App ID, key, authentication flow, session behavior, and verification steps. Keep simulator signing enabled when testing Keychain.
 
+See [TestFlight](docs/TESTFLIGHT.md) for release archives, automatic build numbering, uploads, and installation on a phone.
+
 See [Bible text and search](docs/BIBLE.md) for the bundled Berean Standard Bible, ESV quoting through Crossway's API, and offline keyword and semantic search.
 
-See [accounts and usage](docs/ACCOUNTS.md) for the persistent user database, monthly free limits, personal funding balances, and payment integration status. Settings contains an editable profile photo, a usage-remaining bar with Add usage, and Delete account at the bottom. The photo is held only in chat-view memory: it survives reopening Settings, is never uploaded or written to disk, and resets when the app restarts or the signed-in chat view is removed.
+See [accounts and usage](docs/ACCOUNTS.md) for the persistent user database, monthly free limits, personal funding balances, and payment integration status. Settings contains an editable profile photo, a usage-remaining bar with Add usage, and Delete account at the bottom. The photo is saved as a 512-pixel thumbnail in Application Support, scoped to the account and backend. It survives app restarts and sign-in, uses atomic writes and iOS data protection, and is excluded from backups. It is never uploaded. Successful account deletion removes the local photo.
 
 ## Structure
 
 - `App`: session routing and shared appearance.
 - `Features/Authentication`: native Sign in with Apple entry screen.
 - `Features/Chat`: conversation state, composer, answer/citation rendering, and the empty-state verse carousel (`HomeVerses` holds 36 ESV quotations).
-- `Features/Settings`: in-memory profile photo selection, usage, and account deletion.
+- `Features/Settings`: locally saved profile photo selection, usage, and account deletion.
 - `Features/Legal`: bundled draft Privacy Policy and Terms of Use, accessible before sign-in.
 - `Models`: questions, answers, Bible references, and attributed commentary.
 - `Services`: native streaming HTTPS answer client, full conversation context, local session files, consent checks, and sanitized errors.

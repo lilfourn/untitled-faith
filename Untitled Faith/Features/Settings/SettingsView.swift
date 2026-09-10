@@ -13,7 +13,13 @@ struct SettingsView: View {
             GeometryReader { geometry in
                 ScrollView {
                     VStack(spacing: 36) {
-                        ProfilePhotoPicker(photo: $profilePhoto)
+                        ProfilePhotoPicker(photo: $profilePhoto) { image in
+                            guard !session.isDeletingAccount, session.isSignedIn || session.isPreview else {
+                                throw CancellationError()
+                            }
+                            try session.makeProfilePhotoStorage().save(image)
+                        }
+                            .disabled(session.isDeletingAccount)
                             .padding(.top, 24)
 
                         UsageSection(session: session, addUsage: { showingContribution = true })
@@ -42,7 +48,7 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .fullScreenCover(isPresented: $showingContribution) { ContributionWizard() }
             .navigationBarTitleDisplayMode(.inline)
-            .confirmationDialog("Delete your account? This removes this device’s saved conversations and sign-in session, and revokes Untitled Faith’s access to your Apple sign-in.", isPresented: $confirmingDeletion, titleVisibility: .visible) {
+            .confirmationDialog("Delete your account? This removes this device’s saved conversations, profile photo, and sign-in session, and revokes Untitled Faith’s access to your Apple sign-in.", isPresented: $confirmingDeletion, titleVisibility: .visible) {
                 Button("Delete account", role: .destructive) {
                     Task {
                         await beforeAccountDeletion()

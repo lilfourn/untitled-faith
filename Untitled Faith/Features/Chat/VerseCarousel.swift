@@ -1,40 +1,86 @@
 import SwiftUI
 
-/// Cycles through verses with a crossfade, starting from a day-of-year offset so the
-/// first verse changes daily.
+/// Draws a fresh verse on each open and crossfades between random verses without
+/// repeating the last one shown, including across launches.
 struct VerseCarousel: View {
-    let verses: [ScriptureCitation]
+    let draw: (String) async -> ScriptureCitation?
     var interval: Duration = .seconds(10)
-    @State private var index: Int
+    @State private var verse: ScriptureCitation?
+    @State private var isLoading = true
+    @AppStorage("homeVerse.lastReference") private var lastReference = ""
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(verses: [ScriptureCitation], interval: Duration = .seconds(10)) {
-        self.verses = verses
+    init(draw: @escaping (String) async -> ScriptureCitation?, interval: Duration = .seconds(10)) {
+        self.draw = draw
         self.interval = interval
-        let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 0
-        _index = State(initialValue: verses.isEmpty ? 0 : day % verses.count)
     }
 
     var body: some View {
         ZStack {
-            if verses.indices.contains(index) {
-                VerseText(verse: verses[index])
-                    .id(verses[index].id)
+            if let verse {
+                VerseText(verse: verse)
+                    .id(verse.id)
                     .transition(.opacity)
+            } else if isLoading {
+                VerseSkeleton()
+            } else {
+                Text("ESV verses are temporarily unavailable.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
         }
-        .task(id: verses.count) { await cycle() }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await drawVerse(animated: false)
+            await cycle()
+        }
+    }
+
+    private func drawVerse(animated: Bool) async {
+        let next = await draw(lastReference)
+        guard !Task.isCancelled else { return }
+        isLoading = false
+        guard let next else { return }
+        withAnimation(animated && !reduceMotion ? .easeInOut(duration: 0.8) : nil) {
+            verse = next
+            lastReference = next.reference
+        }
     }
 
     private func cycle() async {
-        guard verses.count > 1 else { return }
         while !Task.isCancelled {
             try? await Task.sleep(for: interval)
             guard !Task.isCancelled else { return }
-            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) {
-                index = (index + 1) % verses.count
-            }
+            await drawVerse(animated: true)
         }
+    }
+}
+
+private struct VerseSkeleton: View {
+    @ScaledMetric(relativeTo: .title3) private var lineHeight = 18
+    @ScaledMetric(relativeTo: .subheadline) private var referenceHeight = 14
+
+    var body: some View {
+        VStack(spacing: 14) {
+            VStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 4)
+                    .frame(height: lineHeight)
+                RoundedRectangle(cornerRadius: 4)
+                    .frame(height: lineHeight)
+                RoundedRectangle(cornerRadius: 4)
+                    .frame(height: lineHeight)
+                    .padding(.horizontal, 36)
+            }
+            RoundedRectangle(cornerRadius: 4)
+                .frame(maxWidth: 140)
+                .frame(height: referenceHeight)
+        }
+        .foregroundStyle(.quaternary)
+        .frame(maxWidth: 480)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading ESV verse")
     }
 }
 
@@ -57,7 +103,7 @@ private struct VerseText: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// ESV prints the divine name as "Lord" in small capitals.
+    /// Render the divine name in small capitals.
     private var passage: AttributedString {
         var name = AttributedString("Lord")
         name.font = Self.passageFont.lowercaseSmallCaps()

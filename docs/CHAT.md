@@ -44,6 +44,25 @@ Final checks for this change: 69 backend tests passed (`.dev/logs/backend-tests-
 
 ## Markdown presentation
 
+September 9 readability update: new responses are instructed to use short paragraphs with blank lines,
+bullets for related points, numbered steps for sequences, selective bold and italics, and brief headings
+for longer answers. Verified quotation text stays verbatim. The app uses bold emphasis and more space
+between paragraphs and list items. Existing saved answer text is not rewritten.
+
+The empty-chat carousel selects random references from the complete bundled Bible and resolves their
+ESV wording through the same authenticated passage service and cache used by chat. It never displays
+the quoter's BSB fallback. A failed refresh keeps the visible ESV verse; if the first load fails, it shows
+a temporary-unavailability message and tries again on the next cycle. It pauses outside the active scene
+and remembers the last displayed reference across launches to avoid an immediate repeat.
+
+Verification for this update: `./scripts/dev check` passed type checks, 231 backend tests, the Bible index
+check, and deployment dry run (`.dev/logs/backend-tests-20260909-192654-98626.log`). The signed app was built,
+installed, and opened with `./scripts/dev run` (`.dev/logs/build-Debug-20260909-192730-2196.log`). The home-verse
+test fixtures were updated for ESV forwarding and rejection of BSB fallback, but iOS tests and simulator
+UI automation were not run. Live response formatting and signed-in ESV display still need manual verification.
+
+The shared answer system prompt includes [writing instructions](../backend/src/writing-style.ts) adapted from the local `stop-slop` skill. Both JSON and streaming answers receive them. They call for plain language, specific pastoral care, varied sentences, and purposeful formatting; they discourage stock validation, filler, formulaic contrasts, and automatic closing questions or prayers. The model must avoid em dashes in its own prose and citation labels, while preserving verified quotations and source URLs exactly. These are generation instructions, not an output rewriting filter; mocked backend checks do not establish live writing quality.
+
 `AnswerMarkdown` uses MarkdownUI 2.4.1, pinned in `project.yml`, for native headings, emphasis, lists, tables, code blocks, and links. This version supports the app’s iOS 17 minimum (the author’s newer Textual package requires iOS 18). Custom Scripture/commentary quotation cards remain separate. Markdown image providers do not fetch remote images, and link opening is limited to the answer’s validated source URLs.
 
 Presentation verification: `./scripts/dev build` passed with signing (`.dev/logs/build-Debug-20260909-181027-2922.log`). The final `./scripts/dev test` run passed all 41 unit tests, including the loading-state, buffering, saved-answer cancellation, and Markdown render tests. The separate contribution wizard UI tests failed during the concurrently changing checkout work (`.dev/logs/ios-tests-20260909-181535-14001.log`); this is not an all-green suite. Light/dark rendering fixtures were inspected at `.dev/answer-presentation-light.png` and `.dev/answer-presentation-dark.png`.

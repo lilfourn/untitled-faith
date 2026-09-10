@@ -68,6 +68,13 @@ final class BibleStore: @unchecked Sendable {
         })
     }
 
+    /// Every verse in the complete Bible is eligible, except the last one shown.
+    func randomVerse(excluding reference: BibleReference?) throws -> BibleVerse? {
+        try query("SELECT id, text FROM verses WHERE id != ? ORDER BY RANDOM() LIMIT 1", bind: { statement in
+            sqlite3_bind_int64(statement, 1, Int64(reference?.idRange.lowerBound ?? -1))
+        }).first
+    }
+
     /// Verbatim text; ranges carry superscript verse numbers. `nil` when no verse exists.
     func passage(_ reference: BibleReference) throws -> String? {
         let verses = try verses(in: reference)

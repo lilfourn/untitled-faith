@@ -17,6 +17,8 @@ Usage: ./scripts/dev <command>
 
   doctor             Check local tools, dependencies, secret-file permissions, and simulators
   build [Debug|Release] Build a signed simulator app without booting a device
+  archive [build-number] Create a signed Release archive; automatically increments the build
+  upload <archive-path> Upload to App Store Connect for TestFlight (manages signing/build number)
   run                Build, verify entitlements, install, and open the app
   preview            Open the Debug chat preview (no authentication bypass for real API calls)
   test               Run signed iOS tests using a separate build folder
@@ -29,6 +31,7 @@ Options are environment variables:
   FAITH_SIMULATOR     Existing simulator name or UDID (default: iPhone 17)
   FAITH_API_BASE_URL  Optional public backend URL override for this build
   FAITH_VERBOSE=1    Stream build logs; full logs are always saved in .dev/logs
+  FAITH_ALLOW_PROVISIONING_UPDATES=1  Let Xcode manage profiles when archiving
 
 This script never shuts down or erases simulators, uninstalls apps, or rotates secrets.
 Signing stays enabled. iOS commands share a cooperative lock to avoid build collisions.
@@ -126,6 +129,42 @@ case "$ACTION" in
     lock_ios
     generate
     build_app "${1:-Debug}"
+    ;;
+  archive)
+    if [ "$#" -gt 1 ]; then
+      echo "Usage: ./scripts/dev archive [build-number]" >&2
+      exit 2
+    fi
+    lock_ios
+    generate
+    build_number="$(python3 "$ROOT/scripts/next-build-number.py" "$ROOT" "$STATE" "$@")"
+    echo "Release build number: $build_number"
+    archive_path="$ROOT/DerivedData/Archives/Untitled Faith-$(date +%Y%m%d-%H%M%S)-$build_number.xcarchive"
+    archive_options=("CODE_SIGNING_ALLOWED=YES" "CODE_SIGNING_REQUIRED=YES" "CURRENT_PROJECT_VERSION=$build_number")
+    if [ -n "${FAITH_API_BASE_URL:-}" ]; then archive_options+=("FAITH_API_BASE_URL=$FAITH_API_BASE_URL"); fi
+    if [ "${FAITH_ALLOW_PROVISIONING_UPDATES:-0}" = 1 ]; then archive_options+=(-allowProvisioningUpdates); fi
+    logged archive xcodebuild -project "$ROOT/Untitled Faith.xcodeproj" -scheme "$SCHEME" \
+      -configuration Release -destination 'generic/platform=iOS' \
+      -derivedDataPath "$ROOT/DerivedData/Release" -archivePath "$archive_path" \
+      "${archive_options[@]}" archive
+    python3 "$ROOT/scripts/verify-signing.py" "$archive_path/Products/Applications/$SCHEME.app"
+    echo "Archive ready: $archive_path"
+    echo "Open this archive in Xcode Organizer to validate and distribute through App Store Connect."
+    ;;
+  upload)
+    if [ "$#" -ne 1 ] || [ ! -d "$1/Products/Applications/$SCHEME.app" ]; then
+      echo "Usage: ./scripts/dev upload <archive-path>" >&2
+      exit 2
+    fi
+    need xcodebuild
+    need python3
+    lock_ios
+    archive_path="$(cd "$1" && pwd)"
+    python3 "$ROOT/scripts/verify-signing.py" "$archive_path/Products/Applications/$SCHEME.app"
+    logged testflight-upload xcodebuild -exportArchive -archivePath "$archive_path" \
+      -exportPath "$ROOT/DerivedData/TestFlight/$(basename "$archive_path" .xcarchive)" \
+      -exportOptionsPlist "$ROOT/Configuration/TestFlightExport.plist" -allowProvisioningUpdates
+    echo "Upload completed. Check processing and tester groups in App Store Connect. External testing requires beta review."
     ;;
   run|preview)
     lock_ios

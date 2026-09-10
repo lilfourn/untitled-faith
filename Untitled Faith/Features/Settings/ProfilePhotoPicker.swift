@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ProfilePhotoPicker: View {
     @Binding var photo: UIImage?
+    let savePhoto: (UIImage) throws -> Void
     @State private var selection: PhotosPickerItem?
     @State private var isLoading = false
     @State private var showingError = false
@@ -45,7 +46,7 @@ struct ProfilePhotoPicker: View {
         .buttonStyle(.plain)
         .accessibilityLabel(photo == nil ? "Add profile photo" : "Change profile photo")
         .task(id: selection) { await loadPhoto() }
-        .alert("Couldn’t load photo", isPresented: $showingError) {
+        .alert("Couldn’t load or save photo", isPresented: $showingError) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Please choose another photo or try again.")
@@ -65,14 +66,16 @@ struct ProfilePhotoPicker: View {
                 throw PhotoError.unreadable
             }
             try Task.checkCancellation()
-            // Retain only a small decoded thumbnail in memory, with no file or cloud writes.
+            // Save only a small decoded thumbnail, without the original photo's metadata.
             guard let source = CGImageSourceCreateWithData(data as CFData, nil),
                   let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                     kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceCreateThumbnailWithTransform: true,
                     kCGImageSourceThumbnailMaxPixelSize: 512
                   ] as CFDictionary) else { throw PhotoError.unreadable }
-            photo = UIImage(cgImage: thumbnail)
+            let image = UIImage(cgImage: thumbnail)
+            try savePhoto(image)
+            photo = image
             self.selection = nil
             isLoading = false
         } catch {

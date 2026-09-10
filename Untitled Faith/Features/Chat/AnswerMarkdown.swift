@@ -30,6 +30,8 @@ private extension Theme {
             FontSize(17)
         }
         .link { ForegroundColor(AppTheme.accent); UnderlineStyle(.single) }
+        .strong { FontWeight(.bold) }
+        .emphasis { FontStyle(.italic) }
         .heading1 { configuration in
             configuration.label
                 .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.45)) }
@@ -48,10 +50,12 @@ private extension Theme {
         .paragraph { configuration in
             configuration.label
                 .relativeLineSpacing(.em(0.2))
-                .markdownMargin(top: 0, bottom: 12)
+                .markdownMargin(top: 0, bottom: 16)
         }
         .listItem { configuration in
-            configuration.label.markdownMargin(top: 4)
+            configuration.label
+                .relativeLineSpacing(.em(0.2))
+                .markdownMargin(top: 6, bottom: 6)
         }
         .codeBlock { configuration in
             ViewThatFits(in: .horizontal) {

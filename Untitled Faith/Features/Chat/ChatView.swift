@@ -2,11 +2,12 @@ import SwiftUI
 
 struct ChatView: View {
     let session: AppSession
+    private let scriptureQuoter: ScriptureQuoter
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var store: ChatStore
     @State private var showingSettings = false
-    // Session-only UI state: never persisted or sent to the backend.
     @State private var profilePhoto: UIImage?
+    @State private var showingPhotoLoadError = false
     @State private var showingHistory = false
     @State private var followingAnswer = true
     @State private var sendTask: Task<Void, Never>?
@@ -19,7 +20,9 @@ struct ChatView: View {
 
     init(session: AppSession, service: any AnswerService) {
         self.session = session
-        _store = State(initialValue: ChatStore(service: service, storage: session.makeConversationStorage(), quoter: session.makeScriptureQuoter()))
+        let quoter = session.makeScriptureQuoter()
+        scriptureQuoter = quoter
+        _store = State(initialValue: ChatStore(service: service, storage: session.makeConversationStorage(), quoter: quoter))
     }
 
     var body: some View {
@@ -57,7 +60,9 @@ struct ChatView: View {
                 .scrollBounceBehavior(.basedOnSize)
                 .overlay {
                     if store.conversation.messages.isEmpty {
-                        VerseCarousel(verses: HomeVerses.esv)
+                        VerseCarousel { lastReference in
+                            await HomeVerses.random(excluding: lastReference, quoter: scriptureQuoter)
+                        }
                             .padding(.horizontal, 40)
                             .allowsHitTesting(false)
                     }
@@ -118,6 +123,15 @@ struct ChatView: View {
                 if !session.aiSharingAllowed { sendTask?.cancel() }
             }
             .onDisappear { sendTask?.cancel() }
+            .task {
+                do { profilePhoto = try session.makeProfilePhotoStorage().load() }
+                catch { showingPhotoLoadError = true }
+            }
+            .alert("Couldn’t load saved photo", isPresented: $showingPhotoLoadError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Try reopening the app or choose a new profile photo in Settings.")
+            }
 
         }
     }

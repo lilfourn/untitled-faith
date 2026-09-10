@@ -30,9 +30,17 @@ final class AppSession {
     }
 
     func makeConversationStorage() -> LocalConversationStorage {
+        LocalConversationStorage(namespace: localStorageNamespace)
+    }
+
+    func makeProfilePhotoStorage() -> LocalProfilePhotoStorage {
+        LocalProfilePhotoStorage(namespace: localStorageNamespace)
+    }
+
+    private var localStorageNamespace: String {
         let identity = authentication?.appleUserID ?? "development-preview"
         let backend = authentication?.apiBaseURL.absoluteString ?? AuthenticationAPI.configured()?.baseURL.absoluteString ?? "preview"
-        return LocalConversationStorage(namespace: backend + "|" + identity)
+        return backend + "|" + identity
     }
 
     func makeAnswerService() -> any AnswerService {
@@ -217,6 +225,8 @@ final class AppSession {
             guard generation == currentGeneration else { return }
             do { try makeConversationStorage().deleteAll() }
             catch { signInError = "Your account was deleted, but saved conversations couldn’t be removed from this device. Removing the app will clear its local data." }
+            do { try makeProfilePhotoStorage().delete() }
+            catch { signInError = "Your account was deleted, but some saved data couldn’t be removed from this device. Removing the app will clear its local data." }
             signOut()
         } catch {
             if generation == currentGeneration { signInError = error.localizedDescription }
