@@ -2,8 +2,23 @@
 
 Updated September 9, 2026.
 
+The clearer teaching and context instructions are deployed as version
+`cfda7243-bc3c-4378-b79a-8f8dcdcd6f25` from source commit `5d505d8`. Both answer paths now require
+context before drawing conclusions, explained connections between passages and claims, plain definitions,
+fair treatment of differing readings, and the same fallibility standard for all outside commentary.
+See [teaching rationale and review cases](../docs/EXPLANATIONS.md).
 
-The source-recovery and output-contract update is deployed as version `6640300e-44b1-4bb3-9301-11cdb3d86aaf`.
+The source was unchanged from the passing Bible index, TypeScript, 268 backend tests, and deployment
+dry run (`.dev/logs/backend-tests-20260909-224725-91374.log`). Deployment used the project-local
+`npm run deploy -- --keep-vars --strict`, retaining remote variables and secrets; no migration was needed.
+Log: `.dev/logs/deploy-clear-teaching-20260909.log`. The source fingerprint in
+`.dev/clear-teaching-release-source.json` matched after deployment, and Wrangler confirmed the new version
+at 100% traffic. Live `/health` returned 200 and an unauthenticated `/v1/answers` returned 401.
+No paid inference or live teaching-quality comparison was run. Existing clients receive the new prompt
+without an app update; the separate usage-display client release is recorded in [TestFlight](../docs/TESTFLIGHT.md).
+
+
+The preceding source-recovery and output-contract update was deployed as version `6640300e-44b1-4bb3-9301-11cdb3d86aaf`.
 The reported faith question was reproduced through the real answer adapter: HTTP 200 generation failed
 at `stage: sources` with `unverified_link`. The model had cited a retrieved ESV.org `/verses/Heb...` URL
 excluded by the old route classifier. Its excerpt also contained a cross-reference marker inside the
@@ -137,7 +152,7 @@ The prior broader evaluation's intermittent citation/provider failures remain a 
 
 Local validation for first-name personalization: `./scripts/dev check` passed the Bible index check, backend type check, 192 tests, and deployment dry run (`.dev/logs/backend-tests-20260909-183747-59296.log`). `./scripts/dev test` passed 41 signed iOS unit tests and 2 UI tests (`.dev/logs/ios-tests-20260909-183754-59471.log`). `./scripts/dev build` passed with Apple sign-in and Keychain identity verified, including the updated privacy text (`.dev/logs/build-Debug-20260909-183918-62738.log`). Apple and inference endpoints were mocked in those tests; no live name capture or paid inference was performed for that local validation. Implementation touches Apple name-scope capture/exchange, account profile validation and migration, account-backed prompts in both answer paths, reservation sizing, tests, and privacy/setup documentation. Remaining client action: install the new signed app and verify Apple given-name capture when Apple provides it.
 
-The `untitled-faith-proxy` Worker is deployed at `https://untitled-faith-proxy.vendors-c0f.workers.dev` in Cloudflare account `c0f96de71bdc54889c1ad27ccc90dfc0` (`vendors@gridbloom.app`). The current source-recovery deployment is version `6640300e-44b1-4bb3-9301-11cdb3d86aaf`. The preceding monthly-only allowance deployment was `529edd2d-0385-4c3f-bbd8-e7b9c1456931`. The preceding reliability deployment was `ef1f3f13-2136-4262-9f0a-99ab40e8fde3`. The preceding response-formatting deployment was `98170bc5-0180-4ace-80eb-c4a5d0525b17`. The preceding writing-style deployment was `5bb83ec1-a837-4cb9-9798-1d66e45fd569`. The preceding independent-review deployment was `a78a316f-1a7e-4a8e-b017-c4f29d5867fe`. The preceding ESV-grounding deployment was `a88f23f3-0fa8-4dad-b6c6-b8897e12ffb9`. The preceding moderation deployment was `cd2013c8-f093-48e9-a0f8-f5e95709f55c`. The preceding approved-web-search deployment was `ca6e14d4-a368-430a-bdd2-b51a7780fe14`. The prior streaming deployment was `32ff97f1-0a92-474c-8f03-5ad8fcbfa319`. The preceding account/usage deployment was `8b09e554-6947-42f1-aab4-83ad415eea78`.
+The `untitled-faith-proxy` Worker is deployed at `https://untitled-faith-proxy.vendors-c0f.workers.dev` in Cloudflare account `c0f96de71bdc54889c1ad27ccc90dfc0` (`vendors@gridbloom.app`). The current clearer-teaching deployment is version `cfda7243-bc3c-4378-b79a-8f8dcdcd6f25`. The preceding source-recovery deployment was `6640300e-44b1-4bb3-9301-11cdb3d86aaf`. The preceding monthly-only allowance deployment was `529edd2d-0385-4c3f-bbd8-e7b9c1456931`. The preceding reliability deployment was `ef1f3f13-2136-4262-9f0a-99ab40e8fde3`. The preceding response-formatting deployment was `98170bc5-0180-4ace-80eb-c4a5d0525b17`. The preceding writing-style deployment was `5bb83ec1-a837-4cb9-9798-1d66e45fd569`. The preceding independent-review deployment was `a78a316f-1a7e-4a8e-b017-c4f29d5867fe`. The preceding ESV-grounding deployment was `a88f23f3-0fa8-4dad-b6c6-b8897e12ffb9`. The preceding moderation deployment was `cd2013c8-f093-48e9-a0f8-f5e95709f55c`. The preceding approved-web-search deployment was `ca6e14d4-a368-430a-bdd2-b51a7780fe14`. The prior streaming deployment was `32ff97f1-0a92-474c-8f03-5ad8fcbfa319`. The preceding account/usage deployment was `8b09e554-6947-42f1-aab4-83ad415eea78`.
 
 Web-search verification: 94 backend tests, 30 signed iOS unit tests, and 2 iOS UI tests passed. A live request through the deployed `/v1/answers` endpoint returned a GotQuestions quotation matched against the retrieved excerpt, its exact source URL, and commentary formatting metadata. Text streamed in four deltas, with first text at 11.755 seconds and completion at 12.408 seconds. The ledger settled 5,083 prompt tokens, 1,352 completion tokens, and 16,756 micro-USD including search and acquisition fees. The temporary developer account was removed after confirming no pending charges. The native quotation layout was rendered and visually checked; the app was rebuilt and installed with signing verified. Search added no secrets or database migrations. See [approved web search](../docs/WEB_SEARCH.md).
 

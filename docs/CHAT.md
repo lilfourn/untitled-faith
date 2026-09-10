@@ -203,3 +203,15 @@ one idea at a time, defining theological terms, connecting passages to conclusio
 text from interpretation and application. It preserves Scripture as the sole final doctrinal authority
 and applies the same fallibility standard to all outside commentary. See [research and review cases](EXPLANATIONS.md)
 for the rationale and the distinction between code checks and live teaching-quality evaluation.
+
+These instructions are deployed as `cfda7243-bc3c-4378-b79a-8f8dcdcd6f25`. They apply to existing clients;
+see [deployment verification](../backend/DEPLOYMENT.md).
+
+## Persistent usage display
+
+Version **1.0.5 (10)** moves usage state out of the Settings sheet into `AccountUsageStore`, owned by
+`AppSession`. It restores the last known account/backend-scoped value immediately and refreshes after
+sign-in, foregrounding, answer completion or failure, and contribution-sheet dismissal, plus periodically
+while active. Reopening Settings preserves the bar instead of replacing it with a loading indicator.
+Account changes cancel outstanding work and prevent late responses from replacing the new account's
+value. See [TestFlight verification and limitations](TESTFLIGHT.md#usage-display-update-105).

@@ -126,6 +126,28 @@ Signed Release archiving verified version/build, Apple sign-in, and Keychain ide
 the upload for processing. Phone rendering and processing completion remain unverified; no iOS tests
 or simulator UI automation were run. No backend deployment was needed.
 
+## Usage display update 1.0.5
+
+On September 9, 2026, version **1.0.5 (build 10)** uploaded successfully to App Store Connect.
+Settings shows the last known account usage immediately while a shared store refreshes it after sign-in,
+on returning to the app, periodically while active, after an answer attempt, and after closing the
+contribution flow. Cached values are scoped to the account and backend. Signing out clears the active
+value; account deletion removes that account's cache. Late responses cannot overwrite another account's
+usage, and forced refreshes during a request queue one follow-up.
+
+Archive: `DerivedData/Archives/Untitled Faith-20260909-224833-10.xcarchive`.
+Archive log: `.dev/logs/archive-20260909-224833-93272.log`.
+Upload log: `.dev/logs/testflight-upload-20260909-225006-96649.log`.
+The existing successful Release archive was reused without another version bump. Its version/build,
+Apple sign-in, and Keychain identity were verified before upload. Apple accepted the upload for
+processing; processing completion and phone behavior remain unverified. Added usage-store tests are
+committed but were not run; no iOS tests or simulator UI automation were started for this release.
+
+The clearer Bible teaching prompt was deployed before upload and is also available to existing clients.
+All 268 backend tests, TypeScript, Bible index, and deployment dry run passed; the live backend health
+and unauthenticated-request checks passed. See [backend release verification](../backend/DEPLOYMENT.md).
+Source commit: `5d505d8`. No external beta review or App Store release was submitted.
+
 ## References
 
 - [Apple: Upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
