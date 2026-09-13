@@ -181,3 +181,43 @@ sign-in, and Keychain signing were verified on the archive. The backend was
 migrated and deployed first; its authenticated readiness and live Paul-answer
 smoke test passed. The frozen backend passed 376 runtime tests and two recovery
 script tests. No iOS test suite or simulator UI automation was run.
+
+## Launch, answers, and usage update 1.0.7
+
+On September 13, 2026, **1.0.7 (build 12)** uploaded successfully. Xcode reported
+`Upload succeeded` and `EXPORT SUCCEEDED`; App Store Connect's Build Uploads table
+confirmed **Processing**, created September 13 at 4:52 PM Central. Processing
+completion and installation on a phone have not been verified. Personal Testing
+retains automatic distribution. This upload does not submit external beta review
+or publish an App Store release.
+
+The release includes returning-user launch preparation and transitions, Scripture
+cards placed beside relevant explanation, source deduplication, separate free and
+Extra usage displays, and the simplified account/payment controls. The matching
+backend adds the first-response prayer/growth guidance and a funded total that
+carries across months.
+
+Source commit: `cc4ad54dfc10e4fd3a3a0797d20fb354139b8944`, pushed to `origin/main`.
+Archive: `DerivedData/Archives/Untitled Faith-20260913-164900-12.xcarchive`.
+Archive log: `.dev/logs/archive-20260913-164900-207.log`.
+Upload log: `.dev/logs/testflight-upload-20260913-165028-2042.log`.
+Signed Release archiving verified the reserved version/build, Apple sign-in, and
+Keychain identity. The archived app points to the production backend.
+
+`./scripts/dev check` passed Bible index consistency, TypeScript, **379 Workers
+tests**, two recovery-script tests, and deployment dry run. The checked source
+matched the release commit. Backend version `36955c85-c0bf-4b93-9c19-e50fff0d6203`
+was deployed before upload, retaining production settings and secrets without a
+migration. Live health and invalid Apple credential rejection passed. See
+[backend verification](../backend/DEPLOYMENT.md). No iOS tests, simulator UI
+automation, paid inference, or live payment was run for this release.
+
+### External beta approval checked September 13
+
+App Store Connect confirms **1.0 (build 4): Testing** in the private **Friends and
+Family** external group, so the original external beta cleared review. The group
+contains one build and one tester; Caroline's status is **Invited**, dated
+September 10. No public link is enabled. This approval applies to build 4, not the
+new 1.0.7 upload. Version 1.0.6 (11) was **Ready to Submit** with Personal Testing
+only. No additional external build submission or tester invitation was made during
+this check.

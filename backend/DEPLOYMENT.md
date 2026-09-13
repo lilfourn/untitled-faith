@@ -1,10 +1,36 @@
 # Deployment status
 
-Updated September 10, 2026.
+Updated September 13, 2026.
+
+## TestFlight 1.0.7 backend — September 13
+
+Worker version **`36955c85-c0bf-4b93-9c19-e50fff0d6203`** serves 100% of production traffic,
+from source commit `cc4ad54dfc10e4fd3a3a0797d20fb354139b8944`. It adds the first-response
+prayer/growth reminder and `funding.totalFundedMicros` for the updated Extra usage display.
+The funded total carries across months and includes settled usage, fee corrections, and refunds.
+Existing clients retain their previous usage response fields.
+
+`./scripts/dev check` passed Bible index consistency, TypeScript, **379 Workers tests**, two
+recovery-script tests, and the deployment dry run. The checked backend and iOS source matched
+the release commit. Deployment used project-local Wrangler 4.130.0 with `--keep-vars --strict`,
+retaining production variables and secrets. No migration or secret change was required.
+The prior production version was `c09815b2-0f98-461f-ad4f-e2ebcb7bd2be`.
+
+Post-deployment checks against the production URL in the signed archive passed: health HTTP 200
+and invalid Apple credentials rejected with HTTP 401. Wrangler confirmed 100% traffic on the new
+version. No paid inference, live payment, iOS test suite, or simulator UI automation was run.
+Live model adherence and the installed phone experience remain unverified.
+
+Logs: `.dev/logs/backend-tests-20260913-164823-99550.log`,
+`.dev/logs/recovery-script-tests-20260913-164847-99550.log`,
+`.dev/logs/backend-bundle-20260913-164847-99550.log`,
+`.dev/logs/release-1.0.7-worker-deploy-20260913.log`, and
+`.dev/logs/release-1.0.7-worker-status-20260913.log`.
+See [the TestFlight release record](../docs/TESTFLIGHT.md) for the client upload.
 
 ## Scripture flow and human perspectives — September 10
 
-Worker version **`c09815b2-0f98-461f-ad4f-e2ebcb7bd2be`** serves 100% of production traffic.
+Worker version **`c09815b2-0f98-461f-ad4f-e2ebcb7bd2be`** served production traffic before the September 13 release.
 It adds verse-then-explanation guidance and proactive, attributed human perspectives beside the
 relevant discussion, including distinct views for meaningful disagreements. Existing clients receive
 these backend instructions without an iOS update.

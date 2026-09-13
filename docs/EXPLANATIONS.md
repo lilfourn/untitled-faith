@@ -20,7 +20,7 @@ For allowed responses, the preamble comes before Scripture or a greeting. The mo
 
 Both JSON and streaming requests receive the selected instruction, and the reservation estimate includes it. This is generation guidance, not a server-inserted paragraph. Mocked integration checks verify prompt selection and preserved history; live model adherence still needs a requested live evaluation.
 
-Validation: `./scripts/dev check` passed Bible index consistency, TypeScript, all 379 backend tests, both recovery script tests, and the deployment dry run. Logs are under `.dev/logs/` for run `20260913-162907-54970`; backend tests: `backend-tests-20260913-162908-54970.log`. `git diff --check` passed. This change has not been deployed or evaluated with paid inference. No iOS tests or simulator UI automation were run.
+Validation: `./scripts/dev check` passed Bible index consistency, TypeScript, all 379 backend tests, both recovery script tests, and the deployment dry run. Logs are under `.dev/logs/` for run `20260913-162907-54970`; backend tests: `backend-tests-20260913-162908-54970.log`. `git diff --check` passed. This change was deployed September 13 as `36955c85-c0bf-4b93-9c19-e50fff0d6203` after the release checks passed again; see [deployment verification](../backend/DEPLOYMENT.md). Paid inference, iOS tests, and simulator UI automation were not run.
 
 ## Implementation
 
