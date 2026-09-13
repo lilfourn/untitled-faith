@@ -83,7 +83,7 @@ export function requestCompletion(messages: Message[], apiKey: string, userID: s
   return requestWithRateLimitFallback({
         // The subject must be an opaque app account ID, never an Apple ID or email.
         user: userID,
-        messages: [{ role: "system", content: answerSystemPrompt(firstName) + (relevanceVerified ? '\nAn independent request reviewer has approved the latest request as relevant in this conversation. Answer its faith or pastoral aspect, or ask a brief clarifying question if needed. Do not reclassify a respectful interfaith question as off_topic. Continue enforcing all safety and source requirements on your answer.' : '') + '\n\n' + biblePrompt(bibleContext) }, ...messages],
+        messages: [{ role: "system", content: answerSystemPrompt(firstName, messages) + (relevanceVerified ? '\nAn independent request reviewer has approved the latest request as relevant in this conversation. Answer its faith or pastoral aspect, or ask a brief clarifying question if needed. Do not reclassify a respectful interfaith question as off_topic. Continue enforcing all safety and source requirements on your answer.' : '') + '\n\n' + biblePrompt(bibleContext) }, ...messages],
         provider: { data_collection: "deny", require_parameters: true,
           max_price: { prompt: MAX_INPUT_PRICE, completion: MAX_OUTPUT_PRICE, request: 0 } },
         response_format: MODERATED_RESPONSE_FORMAT,

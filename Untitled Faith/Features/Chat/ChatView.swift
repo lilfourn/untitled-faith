@@ -3,6 +3,8 @@ import SwiftUI
 struct ChatView: View {
     let session: AppSession
     private let scriptureQuoter: ScriptureQuoter
+    private let onFirstVerseLoaded: () -> Void
+    private let isReady: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var store: ChatStore
     @State private var showingSettings = false
@@ -21,63 +23,29 @@ struct ChatView: View {
         Suggestion(title: "Understand faith", detail: "what does it mean?", question: "What does it mean to have faith?")
     ]
 
-    init(session: AppSession, service: any AnswerService) {
+    init(session: AppSession, store: ChatStore, scriptureQuoter: ScriptureQuoter,
+         profilePhoto: UIImage?, photoLoadFailed: Bool, isReady: Bool, onFirstVerseLoaded: @escaping () -> Void) {
         self.session = session
-        let quoter = session.makeScriptureQuoter()
-        scriptureQuoter = quoter
-        _store = State(initialValue: ChatStore(service: service, storage: session.makeConversationStorage(), quoter: quoter))
+        self.scriptureQuoter = scriptureQuoter
+        self.onFirstVerseLoaded = onFirstVerseLoaded
+        self.isReady = isReady
+        _store = State(initialValue: store)
+        _profilePhoto = State(initialValue: profilePhoto)
+        _showingPhotoLoadError = State(initialValue: photoLoadFailed)
     }
 
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        ForEach(store.conversation.messages) { message in
-                            MessageView(message: message)
-                                .modifier(AnswerReveal(progress: store.revealingMessageID == message.id ? store.revealProgress : nil))
-                        }
-
-                        if let phase = store.loadingPhase {
-                            ThinkingText(title: phase.rawValue)
-                        }
-                        if let error = store.errorMessage {
-                            Label(error, systemImage: "info.circle")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .padding()
-                                .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 16))
-                                .accessibilityIdentifier("chat-service-notice")
-                        }
-                        if store.canRetry {
-                            Button("Retry answer", systemImage: "arrow.clockwise") {
-                                Task { if await store.checkRetry() { confirmingRetry = true } }
-                            }
-                                .accessibilityIdentifier("retry-answer")
-                        }
-                        if store.isCheckingRetry { ProgressView("Checking previous request…") }
-                        if let error = store.storageError {
-                            Label(error, systemImage: "exclamationmark.triangle")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        if store.hasUnsavedChanges {
-                            Button("Retry saving") { store.retrySave() }
-                            Button("Discard unsaved changes", role: .destructive) { confirmingDiscard = true }
-                                .disabled(store.isSending)
-                        }
-                        Color.clear.frame(height: 1).id("bottom")
-                    }
-                    .padding(24)
-                    .frame(maxWidth: 720)
-                    .frame(maxWidth: .infinity)
+                    conversationContent
                 }
                 .scrollBounceBehavior(.basedOnSize)
                 .overlay {
                     if store.conversation.messages.isEmpty {
-                        VerseCarousel { lastReference in
+                        VerseCarousel(draw: { lastReference in
                             await HomeVerses.random(excluding: lastReference, quoter: scriptureQuoter)
-                        }
+                        }, onFirstLoad: onFirstVerseLoaded)
                             .padding(.horizontal, 40)
                             .allowsHitTesting(false)
                     }
@@ -108,7 +76,7 @@ struct ChatView: View {
             }
             .background(AppTheme.background)
             .modifier(ChatHaptics(isSending: store.isSending, revealProgress: store.revealProgress,
-                                  isVisible: !showingSettings && !showingHistory && !showingPhotoLoadError))
+                                  isVisible: isReady && !showingSettings && !showingHistory && !showingPhotoLoadError))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if #available(iOS 26.0, *) {
@@ -159,21 +127,71 @@ struct ChatView: View {
             .onChange(of: store.isSending) {
                 if !store.isSending { session.refreshUsage(force: true) }
             }
-            .onChange(of: session.aiSharingAllowed) {
-                if !session.aiSharingAllowed { sendTask?.cancel() }
+            .alert("Add usage to continue", isPresented: Binding(
+                get: { store.usageLimitMessage != nil },
+                set: { if !$0 { store.usageLimitMessage = nil } }
+            ), presenting: store.usageLimitMessage) { _ in
+                Button("Open Settings") {
+                    composerFocused = false
+                    showingSettings = true
+                }
+                Button("Not now", role: .cancel) {}
+            } message: { message in
+                Text(message)
             }
             .onDisappear { sendTask?.cancel() }
-            .task {
-                do { profilePhoto = try session.makeProfilePhotoStorage().load() }
-                catch { showingPhotoLoadError = true }
-            }
-            .alert("Couldn’t load saved photo", isPresented: $showingPhotoLoadError) {
+            .alert("Couldn’t load saved photo", isPresented: Binding(
+                get: { isReady && showingPhotoLoadError },
+                set: { showingPhotoLoadError = $0 }
+            )) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("Try reopening the app or choose a new profile photo in Settings.")
             }
 
         }
+    }
+
+    private var conversationContent: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            ForEach(store.conversation.messages) { message in
+                MessageView(message: message)
+                    .modifier(AnswerReveal(progress: store.revealingMessageID == message.id ? store.revealProgress : nil))
+            }
+
+            if let phase = store.loadingPhase {
+                ThinkingText(title: phase.rawValue)
+            }
+            if let error = store.errorMessage {
+                Label(error, systemImage: "info.circle")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding()
+                    .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 16))
+                    .accessibilityIdentifier("chat-service-notice")
+            }
+            if store.canRetry {
+                Button("Retry answer", systemImage: "arrow.clockwise") {
+                    Task { if await store.checkRetry() { confirmingRetry = true } }
+                }
+                    .accessibilityIdentifier("retry-answer")
+            }
+            if store.isCheckingRetry { ProgressView("Checking previous request…") }
+            if let error = store.storageError {
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if store.hasUnsavedChanges {
+                Button("Retry saving") { store.retrySave() }
+                Button("Discard unsaved changes", role: .destructive) { confirmingDiscard = true }
+                    .disabled(store.isSending)
+            }
+            Color.clear.frame(height: 1).id("bottom")
+        }
+        .padding(24)
+        .frame(maxWidth: 720)
+        .frame(maxWidth: .infinity)
     }
 
     private func compactToolbarIcon(_ symbol: String) -> some View {

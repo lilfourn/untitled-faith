@@ -5,6 +5,8 @@ struct SettingsView: View {
     @Binding var profilePhoto: UIImage?
     var beforeAccountDeletion: () async -> Void = {}
     var beforeSignOut: () async -> Bool = { true }
+    @AppStorage(AppTheme.appearanceStorageKey) private var appearance: AppTheme.Appearance = .system
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @State private var confirmingDeletion = false
     @State private var showingContribution = false
@@ -26,9 +28,13 @@ struct SettingsView: View {
 
                         UsageSection(session: session, addUsage: { showingContribution = true })
 
+                        Toggle("Dark mode", isOn: Binding(
+                            get: { (appearance.colorScheme ?? colorScheme) == .dark },
+                            set: { appearance = $0 ? .dark : .light }
+                        ))
+                        .tint(AppTheme.accent)
+
                         VStack(alignment: .leading, spacing: 20) {
-                            Toggle("AI answers", isOn: $session.aiSharingAllowed)
-                                .disabled(session.hasPendingDeletion)
                             Button("Privacy Policy") { legalDocument = .privacy }
                             Button("Terms of Use") { legalDocument = .terms }
                             Button("Sign out") {
@@ -100,5 +106,6 @@ struct SettingsView: View {
                 }
             }
         }
+        .preferredColorScheme(appearance.colorScheme)
     }
 }

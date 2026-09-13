@@ -22,13 +22,6 @@ struct PaymentEntry: View {
                 Text("Your free allowance renews each month.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
-            if let value = session.accountUsage.value, value.funding.availableMicros > 0 {
-                LabeledContent("Usage funding", value: Self.money(value.funding.availableMicros))
-                    .font(.subheadline)
-            }
-            if configuration?.isOwner == true, let api = session.makePaymentAPI() {
-                NavigationLink("Payment overview") { OwnerPaymentsView(api: api) }
-            }
         }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }

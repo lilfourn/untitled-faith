@@ -88,10 +88,10 @@ are included in the owner overview. Developer allocations never increase the own
 a Stripe account ID or an Apple identifier. No account is automatically made owner based on its name,
 signup order, or a client flag. Non-owners receive 403 from `GET /v1/owner/payments`.
 
-The owner’s Settings shows **Payment overview** with user funding, developer share, remaining user
-balances/reservations, confirmed and estimated processing fees, refunds, disputed amounts, monthly
-allocations, and pending reconciliation counts. The API also supplies the latest 30 payments without
-buyer identities. Stripe deposits combined proceeds into the merchant’s bank account; these ledgers
+The **Payment overview** link was removed from Settings at Luke’s request on September 11.
+The owner API remains available for operational accounting: user funding, developer share, remaining
+balances/reservations, processing fees, refunds, disputes, monthly allocations, reconciliation counts,
+and the latest 30 payments without buyer identities. Stripe deposits combined proceeds into the merchant’s bank account; these ledgers
 separate the allocations but do not initiate bank transfers or automate developer withdrawals.
 
 ## Setup and reconfiguration procedure

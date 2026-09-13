@@ -10,14 +10,17 @@ struct UsageSection: View {
                 HStack {
                     Text("Usage remaining")
                     Spacer()
-                    Text(session.isPreview ? "Preview" : session.accountUsage.value.map { "\($0.remainingPercent)%" } ?? "—")
+                    Text(session.isPreview ? "Preview" : session.accountUsage.value.map { "\($0.free.remainingPercent)%" } ?? "—")
                         .monospacedDigit()
                 }
-                ProgressView(value: Double(session.accountUsage.value?.remainingPercent ?? 0), total: 100)
+                ProgressView(value: Double(session.accountUsage.value?.free.remainingPercent ?? 0), total: 100)
                     .tint(AppTheme.accent)
                     .opacity(session.accountUsage.value == nil ? 0.35 : 1)
                     .accessibilityLabel("Usage remaining")
-                    .accessibilityValue(session.accountUsage.value.map { "\($0.remainingPercent) percent" } ?? "Not available yet")
+                    .accessibilityValue(session.accountUsage.value.map { "\($0.free.remainingPercent) percent" } ?? "Not available yet")
+            }
+            if let funding = session.accountUsage.value?.funding, funding.displayTotalMicros > 0 {
+                ExtraUsageView(funding: funding)
             }
             if let error = session.accountUsage.errorMessage {
                 if let updatedAt = session.accountUsage.updatedAt {

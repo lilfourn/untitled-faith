@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-struct ConversationSummary: Identifiable, Codable {
+struct ConversationSummary: Identifiable, Codable, Sendable {
     let id: UUID
     let title: String
     let updatedAt: Date
@@ -9,6 +9,11 @@ struct ConversationSummary: Identifiable, Codable {
 
 // One atomic file per conversation, separated by account and backend. No cloud backup/sync.
 struct LocalConversationStorage {
+    struct Index: Sendable {
+        let items: [ConversationSummary]
+        let unreadableCount: Int
+    }
+
     let directory: URL
 
     init(namespace: String, root: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]) {
@@ -16,8 +21,8 @@ struct LocalConversationStorage {
         directory = root.appendingPathComponent("Conversations", isDirectory: true).appendingPathComponent(key, isDirectory: true)
     }
 
-    func summaries() throws -> (items: [ConversationSummary], unreadableCount: Int) {
-        guard FileManager.default.fileExists(atPath: directory.path) else { return ([], 0) }
+    func summaries() throws -> Index {
+        guard FileManager.default.fileExists(atPath: directory.path) else { return Index(items: [], unreadableCount: 0) }
         let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "json" }
         var items: [ConversationSummary] = []
@@ -31,7 +36,7 @@ struct LocalConversationStorage {
                 items.append(header.summary)
             } catch { unreadableCount += 1 }
         }
-        return (items.sorted { $0.updatedAt > $1.updatedAt }, unreadableCount)
+        return Index(items: items.sorted { $0.updatedAt > $1.updatedAt }, unreadableCount: unreadableCount)
     }
 
     func load(_ id: UUID) throws -> Conversation {

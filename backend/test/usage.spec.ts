@@ -15,6 +15,33 @@ async function fund(id: string, transactionID = crypto.randomUUID()) {
 }
 
 describe("persistent accounts, quotas, and personal funding", () => {
+  it("keeps extra-usage capacity across spending, holds, top-ups, and month changes", async () => {
+    const account = await newAccount();
+    const other = await newAccount();
+    expect((await usageSummary(env.DB, account.id, now)).funding.totalFundedMicros).toBe(0);
+    const payment = await fund(account.id);
+    await env.DB.prepare("INSERT INTO free_months(month, budget_micros) VALUES ('2026-09', 0)").run();
+    const paid = await reserve(account.id);
+    expect((await usageSummary(env.DB, account.id, now)).funding).toMatchObject({
+      totalFundedMicros: 4_250_000, availableMicros: 4_240_000,
+    });
+    await settleUsage(env.DB, paid.id, bill);
+    expect((await usageSummary(env.DB, account.id, new Date('2026-10-01'))).funding).toMatchObject({
+      totalFundedMicros: 4_250_000, availableMicros: 4_248_000,
+    });
+    await fund(account.id);
+    expect((await usageSummary(env.DB, account.id, now)).funding.totalFundedMicros).toBe(8_500_000);
+    await reverseContribution(env.DB, 'app_store', payment.transactionID);
+    expect((await usageSummary(env.DB, account.id, now)).funding).toMatchObject({
+      totalFundedMicros: 4_250_000, availableMicros: 4_248_000,
+    });
+    expect((await usageSummary(env.DB, other.id, now)).funding.totalFundedMicros).toBe(0);
+    const last = await reserve(account.id);
+    await settleUsage(env.DB, last.id, { ...bill, costMicros: 4_248_000 });
+    expect((await usageSummary(env.DB, account.id, now)).funding).toMatchObject({
+      totalFundedMicros: 4_250_000, availableMicros: 0,
+    });
+  });
   it("keeps the streamed generation ID when a later settlement failure has no ID", async () => {
     const account = await newAccount();
     const reservation = await reserve(account.id);

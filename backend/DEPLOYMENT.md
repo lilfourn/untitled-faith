@@ -2,6 +2,27 @@
 
 Updated September 10, 2026.
 
+## Scripture flow and human perspectives — September 10
+
+Worker version **`c09815b2-0f98-461f-ad4f-e2ebcb7bd2be`** serves 100% of production traffic.
+It adds verse-then-explanation guidance and proactive, attributed human perspectives beside the
+relevant discussion, including distinct views for meaningful disagreements. Existing clients receive
+these backend instructions without an iOS update.
+
+The source differs from the preceding live Stripe snapshot only in `answer-prompt.ts`,
+`teaching-style.ts`, and `writing-style.ts`. Source fingerprints in `.dev/response-release-source.json`
+were unchanged during deployment. Deployment used the installed Wrangler 4.130.0 with
+`--keep-vars --strict`; no migrations or secret changes were required. Prior version:
+`0f893638-1ca3-4808-bfa7-655ce3e660e8`.
+
+`./scripts/dev check` passed Bible index consistency, TypeScript, 376 backend tests, two recovery-script
+checks, and dry run before deployment. Test log: `.dev/logs/backend-tests-20260910-131345-39815.log`.
+Deployment log: `.dev/logs/response-guidance-deploy-20260910.log`; deployment status:
+`.dev/logs/response-guidance-deployments-20260910.log`. Live curl checks confirmed health 200 and
+unauthenticated answers 401. The initial Python HTTP client was blocked by the edge with 403/1010;
+the curl checks reached the Worker successfully. No paid inference, iOS tests, or simulator UI
+automation was run. Live adherence to the response style and source balance remains unverified.
+
 ## Live Stripe activation — September 10
 
 Worker version **`0f893638-1ca3-4808-bfa7-655ce3e660e8`** enables live Standard Checkout and the owner

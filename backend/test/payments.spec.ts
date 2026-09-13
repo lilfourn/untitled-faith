@@ -7,6 +7,7 @@ import { createCheckout, CheckoutIntent, isStripeCheckoutURL } from '../src/paym
 import { allocation, saveSnapshot, synchronizeCheckout } from '../src/payments/reconciliation';
 import { PaymentEnv, parseSelection } from '../src/payments/configuration';
 import { ownerPaymentSummary } from '../src/payments/summary';
+import { usageSummary } from '../src/usage';
 import { receiveStripeEvent, retryStripeEvents } from '../src/payments/webhook';
 
 const paymentEnv: PaymentEnv = { ...env, PAYMENTS_ENABLED: 'true', STRIPE_MODE: 'test',
@@ -135,6 +136,7 @@ describe('verified payment accounting', () => {
     await synchronizeCheckout(paymentEnv, intent.session_id!);
     expect(await balance()).toBe(9_110_000);
     const totals = await ownerPaymentSummary(env.DB);
+    expect((await usageSummary(env.DB, intent.user_id!)).funding.totalFundedMicros).toBe(9_110_000);
     expect(totals.stripe?.developerShareMicros).toBe(300_000);
     expect(totals.stripe?.usageFundingMicros).toBe(9_110_000);
     expect((await env.DB.prepare('SELECT COUNT(*) AS n FROM payment_allocations').first())?.n).toBe(1);
@@ -151,6 +153,7 @@ describe('verified payment accounting', () => {
     await synchronizeCheckout(paymentEnv, intent.session_id!);
     await synchronizeCheckout(paymentEnv, intent.session_id!);
     expect(await balance()).toBe(8_960_000);
+    expect((await usageSummary(env.DB, intent.user_id!)).funding.totalFundedMicros).toBe(8_960_000);
     expect((await ownerPaymentSummary(env.DB)).stripe?.developerShareMicros).toBe(300_000);
     expect((await ownerPaymentSummary(env.DB)).stripe?.awaitingFees).toBe(0);
   });
@@ -159,12 +162,14 @@ describe('verified payment accounting', () => {
     charge.amount_refunded = 500;
     await synchronizeCheckout(paymentEnv, intent.session_id!);
     expect(await balance()).toBe(4_260_000);
+    expect((await usageSummary(env.DB, intent.user_id!)).funding.totalFundedMicros).toBe(4_260_000);
     expect((await ownerPaymentSummary(env.DB)).stripe?.developerShareMicros).toBe(150_000);
     charge.amount_refunded = 1000;
     await synchronizeCheckout(paymentEnv, intent.session_id!);
     await synchronizeCheckout(paymentEnv, intent.session_id!);
     expect(await balance()).toBe(0);
     expect((await ownerPaymentSummary(env.DB)).stripe?.developerShareMicros).toBe(0);
+    expect((await usageSummary(env.DB, intent.user_id!)).funding.totalFundedMicros).toBe(0);
   });
   it('does not credit a payment first observed after its refund', async () => {
     charge.amount_refunded = 1000;

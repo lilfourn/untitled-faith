@@ -86,8 +86,12 @@ export async function usageSummary(db: D1Database, userID: string, now = new Dat
   const monthStart = new Date(`${month}-01T00:00:00Z`).getTime();
   const funds = await db.prepare(`SELECT
     COALESCE(SUM(CASE WHEN created_at < ? THEN delta_micros ELSE 0 END), 0) AS opening,
-    COALESCE(SUM(CASE WHEN created_at >= ? AND kind IN ('contribution', 'refund') THEN delta_micros ELSE 0 END), 0) AS added
-    FROM wallet_entries WHERE user_id = ?`).bind(monthStart, monthStart, userID).first<{ opening: number; added: number }>();
+    COALESCE(SUM(CASE WHEN created_at >= ? AND kind IN ('contribution', 'refund') THEN delta_micros ELSE 0 END), 0) AS added,
+    COALESCE(SUM(CASE WHEN kind = 'usage' THEN -delta_micros ELSE 0 END), 0) AS spent
+    FROM wallet_entries WHERE user_id = ?`).bind(monthStart, monthStart, userID).first<{ opening: number; added: number; spent: number }>();
+  // Balance plus settled paid usage recovers net funding across both payment ledgers,
+  // including fee adjustments and refunds. This total carries across free-month resets.
+  const totalFundedMicros = Math.max(0, account.paid_balance_micros + (funds?.spent ?? 0));
   // Display-only normalization: each free question has the 2-cent planning value plus the credit fee.
   // Enforcement still uses exact free counters and actual funded costs, never this percentage.
   const freeDisplayValue = 21_100;
@@ -103,7 +107,7 @@ export async function usageSummary(db: D1Database, userID: string, now = new Dat
       usedToday: counts?.free_used_today ?? 0, usedThisMonth: counts?.free_used ?? 0,
       remainingToday: remainingFree,
       remainingThisMonth: remainingFree },
-    funding: { balanceMicros: account.paid_balance_micros, reservedMicros: account.paid_reserved_micros,
+    funding: { balanceMicros: account.paid_balance_micros, reservedMicros: account.paid_reserved_micros, totalFundedMicros,
       availableMicros: Math.max(0, account.paid_balance_micros - account.paid_reserved_micros) },
     usage: { totalRequests: counts?.total_requests ?? 0, pendingRequests: recovery?.pending ?? 0, requestsNeedingReview: recovery?.needs_review ?? 0,
       promptTokens: counts?.prompt_tokens ?? 0, completionTokens: counts?.completion_tokens ?? 0,

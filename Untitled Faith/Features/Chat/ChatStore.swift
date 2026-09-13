@@ -14,6 +14,7 @@ final class ChatStore {
     private(set) var draftRevision = UUID()
     var draft = ""
     var errorMessage: String?
+    var usageLimitMessage: String?
     var storageError: String?
     private(set) var isCheckingRetry = false
     private(set) var hasUnsavedChanges = false
@@ -22,11 +23,13 @@ final class ChatStore {
     private let storage: LocalConversationStorage?
     private let quoter: ScriptureQuoter?
 
-    init(service: any AnswerService, storage: LocalConversationStorage? = nil, quoter: ScriptureQuoter? = nil) {
+    init(service: any AnswerService, storage: LocalConversationStorage? = nil, quoter: ScriptureQuoter? = nil,
+         initialHistory: Result<LocalConversationStorage.Index, Error>? = nil) {
         self.service = service
         self.storage = storage
         self.quoter = quoter
-        refreshHistory()
+        if let initialHistory { applyHistory(initialHistory) }
+        else { refreshHistory() }
     }
 
     var canSend: Bool {
@@ -73,6 +76,7 @@ final class ChatStore {
     /// Accept and save synchronously, before yielding to the network or keyboard callbacks.
     func startSend(animate: Bool = true, retrying: Bool = false) -> Task<Void, Never>? {
         guard retrying ? canRetry : canSend else { return nil }
+        usageLimitMessage = nil
         var next = conversation
         if retrying, case .question(_, let question)? = next.messages.last {
             // An explicit retry is a new attempt, without duplicating the displayed question.
@@ -131,11 +135,14 @@ final class ChatStore {
                 revealingMessageID = answerID
                 revealProgress = 0
             }
-            setAnswer(id: answerID, answer: answer)
+            let references = AnswerScripture.missingReferences(in: answer)
+            let available = quoter?.availableCitations(for: references) ?? []
+            let initialAnswer = AnswerScripture.adding(available, to: answer)
+            setAnswer(id: answerID, answer: initialAnswer)
             saveCurrent()
-            // Verse cards resolve while the text reveals, so quoting never delays the answer.
+            // Cached/bundled cards are already present; upgrade missing licensed text during the reveal.
             async let citedAnswer = withCitations(answer)
-            if animate { try await reveal(answer) }
+            if animate { try await reveal(initialAnswer) }
             if let citedAnswer = await citedAnswer {
                 setAnswer(id: answerID, answer: citedAnswer)
                 saveCurrent()
@@ -144,6 +151,16 @@ final class ChatStore {
             if !receivedAnswer { errorMessage = "Response stopped." }
         } catch {
             errorMessage = error.localizedDescription
+            switch error as? AnswerServiceError {
+            case .monthlyFreeLimit:
+                usageLimitMessage = "You’ve used this month’s free usage. Add extra usage in Settings to continue, or wait for your allowance to renew next month."
+            case .freePoolUnavailable:
+                usageLimitMessage = "Free usage is temporarily unavailable. You can add extra usage in Settings to continue."
+            case .fundingRequired:
+                usageLimitMessage = "Your extra usage balance can’t cover this question. Add usage in Settings to continue."
+            default:
+                break
+            }
         }
     }
 
@@ -154,6 +171,7 @@ final class ChatStore {
         draft = ""
         draftRevision = UUID()
         errorMessage = nil
+        usageLimitMessage = nil
     }
 
     func openConversation(_ id: UUID) {
@@ -164,6 +182,7 @@ final class ChatStore {
             draft = ""
             draftRevision = UUID()
             errorMessage = nil
+            usageLimitMessage = nil
         } catch { storageError = "We couldn’t open this saved conversation. It hasn’t been deleted." }
     }
 
@@ -195,13 +214,12 @@ final class ChatStore {
 
     /// Adds verse cards for references the answer mentions. Nil when nothing was resolved.
     private func withCitations(_ answer: FaithAnswer) async -> FaithAnswer? {
-        guard let quoter, answer.scripture.isEmpty else { return nil }
-        let references = Array(ScriptureReferenceDetector.references(in: answer.text).prefix(8))
+        guard let quoter else { return nil }
+        let references = AnswerScripture.missingReferences(in: answer)
         guard !references.isEmpty else { return nil }
         let citations = await quoter.citations(for: references)
         guard !citations.isEmpty else { return nil }
-        return FaithAnswer(text: answer.text, scripture: citations, commentary: answer.commentary,
-                           isComplete: answer.isComplete, sources: answer.sources, quotes: answer.quotes)
+        return AnswerScripture.adding(citations, to: answer)
     }
 
     private func setAnswer(id: UUID, answer: FaithAnswer) {
@@ -247,8 +265,12 @@ final class ChatStore {
 
     private func refreshHistory() {
         guard let storage else { return }
+        applyHistory(Result { try storage.summaries() })
+    }
+
+    private func applyHistory(_ result: Result<LocalConversationStorage.Index, Error>) {
         do {
-            let result = try storage.summaries()
+            let result = try result.get()
             history = result.items
             if result.unreadableCount > 0 { storageError = "Some saved conversations couldn’t be read. They haven’t been deleted." }
         } catch { storageError = "We couldn’t load your saved conversations. Please try again." }

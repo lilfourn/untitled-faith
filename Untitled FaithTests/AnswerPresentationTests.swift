@@ -52,6 +52,28 @@ final class AnswerPresentationTests: XCTestCase {
         XCTAssertEqual(store.conversation.messages.last?.text, answer.text)
     }
 
+    func testStoppingTheRevealKeepsSavedVerseCards() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let storage = LocalConversationStorage(namespace: "verse-cards", root: root)
+        let service = HeldAnswerService()
+        let started = expectation(description: "Request started")
+        service.onStart = { started.fulfill() }
+        let quoter = ScriptureQuoter(service: nil, cache: nil, fallback: try XCTUnwrap(BibleStore.bundled))
+        let store = ChatStore(service: service, storage: storage, quoter: quoter)
+        store.draft = "What does John 3:16 mean?"
+        let task = Task { await store.send() }
+        await fulfillment(of: [started], timeout: 2)
+        service.completion?.resume(returning: FaithAnswer(text: "John 3:16 describes God's love for the world.", scripture: [], commentary: []))
+        try await Task.sleep(for: .milliseconds(50))
+        task.cancel()
+        await task.value
+        guard case .answer(_, let saved)? = try storage.load(store.conversation.id).messages.last else { return XCTFail("Missing saved answer") }
+        XCTAssertEqual(saved.scripture.map(\.reference), ["John 3:16"])
+        XCTAssertEqual(AnswerBody.blocks(for: saved).compactMap(\.scripture).count, 1)
+        XCTAssertNil(store.errorMessage)
+    }
+
     func testRenderLoadingAndMarkdownForReview() throws {
         let answer = FaithAnswer(text: """
         ## Begin with one Gospel

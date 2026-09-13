@@ -6,7 +6,7 @@ not a description of the current UI.
 
 Implemented:
 
-- Settings exposes sign-out, the remembered AI-answer toggle, and privacy/terms.
+- Settings exposes sign-out and privacy/terms. The AI-answer toggle was subsequently removed at the user’s request on September 11, along with its saved-preference gate.
 - Session restoration can retry temporary credential/refresh failures; confirmed
   expiry/revocation still requires sign-in. Apple key-server outages are reported
   as temporary backend errors rather than invalid credentials.

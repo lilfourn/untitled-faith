@@ -21,9 +21,6 @@ struct MessageView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                ForEach(answer.scripture) { citation in
-                    QuotationCard(text: citation.passage, attribution: "\(citation.reference) · \(citation.translation)", kind: .scripture)
-                }
                 if !answer.commentary.isEmpty {
                     Text("COMMENTARY")
                         .font(.caption.weight(.semibold))

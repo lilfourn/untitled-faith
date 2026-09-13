@@ -3,12 +3,15 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var session = AppSession()
+    @State private var didResolveLaunch = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
-            if session.isPreview || session.isSignedIn {
-                ChatView(session: session, service: session.makeAnswerService())
+            if !didResolveLaunch {
+                AppLoadingView()
+            } else if session.isPreview || session.isSignedIn {
+                ChatHomeView(session: session)
                     .id(session.authentication?.appleUserID ?? "preview")
             } else {
                 SignInView(session: session)
@@ -24,10 +27,11 @@ struct ContentView: View {
                 session.refreshUsage(force: true)
             }
         }
-        .task { await session.restoreSession() }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await session.becameActive()
+            guard !Task.isCancelled else { return }
+            didResolveLaunch = true
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(60)) }
                 catch { return }

@@ -22,7 +22,7 @@ export function reservationMicros(messages: Message[], firstName: string | null 
   bibleContext: BibleContext = retrieveBible(messages)): number {
   // Deliberately conservative byte-based token estimate plus system/framing allowance.
   // The server also caps the actual request body at 1 MiB. Actual cost is reconciled after inference.
-  const bytes = new TextEncoder().encode(JSON.stringify(messages) + answerSystemPrompt(firstName) +
+  const bytes = new TextEncoder().encode(JSON.stringify(messages) + answerSystemPrompt(firstName, messages) +
     biblePrompt(bibleContext) + JSON.stringify(MODERATED_RESPONSE_FORMAT)).byteLength + 4096;
   // Reserve for tool selection and synthesis, retrieved UTF-8 excerpts, and the search fee.
   // usage.cost already includes search charges; settlement must not add that fee again.

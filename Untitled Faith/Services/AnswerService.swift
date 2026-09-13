@@ -51,7 +51,7 @@ enum AnswerServiceError: LocalizedError {
         case .notConnected: "Answers aren’t connected yet. No answer has been generated."
         case .invalidConfiguration: "The answer service isn’t configured correctly. Please try again later."
         case .signInRequired: "Your answer session is unavailable or has expired. Please sign in again."
-        case .consentRequired: "AI answers are off. Turn them on in Settings to send a question."
+        case .consentRequired: "This app’s answer request is no longer supported. Check for an app update and try again."
         case .conversationTooLong: "This conversation has reached the size limit. Start a new conversation to continue."
         case .questionTooLong: "Please shorten your question to 8,000 characters or fewer."
         case .rateLimited: "Too many answer requests right now. Please wait a minute before trying again."

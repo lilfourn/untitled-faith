@@ -4,8 +4,8 @@
 
 September 9, 2026: the user chose the most affordable approach with good performance. The backend now
 searches the complete public-domain BSB **before** its existing answer-generation request, then fetches
-selected passages directly from Crossway for verified ESV quotations. The phone's post-answer verse cards
-are additional reading; the model also receives the verified ESV evidence before writing.
+selected passages directly from Crossway for verified ESV quotations. The model receives verified ESV
+evidence before writing; the phone fills missing verse cards beside references within the answer.
 
 `scripts/bible/build-search.py` generates `backend/src/bible/data.ts` from the bundled SQLite database.
 The generated file contains the verbatim text, canonical IDs, book aliases, verse lengths, and BM25 posting
@@ -69,12 +69,36 @@ deliberately rejects ESV; licensed indexing and AI use would need a separate imp
 ## Exact quoting
 
 1. `ScriptureReferenceDetector` finds references in an answer ("Rom. 8:28–30", "1 Pet 5:7", "Psalm 23").
+   `AnswerScripture` excludes references already covered by a verified Scripture card or fetched citation.
 2. `ScriptureQuoter` resolves each reference:
    - from the device `PassageCache` (capped at 500 verses, entries expire after 30 days), else
    - from `GET /v1/passages?q=John+3:16;Romans+8:28` on the backend, which calls Crossway with the server-side
      `ESV_API_KEY` (footnotes and headings off, verse numbers rendered as superscripts), else
    - from the bundled BSB through `BibleStore`.
 3. Cards show the reference and translation ("John 3:16 · ESV" or "· BSB") with the verbatim text.
+   `AnswerBody` inserts fetched cards after the first paragraph mentioning their passage. Repeated references
+   do not add repeated fetched cards, and legacy extra cards covered by an embedded quote are hidden.
+
+September 13, 2026: answers save and display cached or bundled cards before the reveal starts. The existing
+asynchronous passage lookup can then replace those supplemental cards with ESV text. Stopping the reveal
+retains the initial cards. One licensed lookup still requests at most eight distinct uncached passages;
+additional references use the bundled translation instead of being silently omitted. The app keeps the
+original answer text, source IDs, and quote offsets for history and follow-up requests.
+
+The model is instructed to include verified ESV text in the existing Scripture quotation format whenever
+it mentions a passage, close to that passage's first mention. Missing ESV evidence still requires an explicit
+reference and a paraphrase, never invented text; the phone supplies the separate, labeled verse card.
+The first-response prayer preamble remains before the Scripture and explanation.
+
+Validation for the September 13 card/source changes: `./scripts/dev check` passed the Bible index check,
+TypeScript, 385 backend tests, recovery script tests, and the deployment dry run. Backend test log:
+`.dev/logs/backend-tests-20260913-164102-86084.log`. `./scripts/dev build-tests` compiled the signed app and
+iOS test targets without launching a simulator; final log:
+`.dev/logs/ios-test-build-20260913-164340-91247.log`. The new tests cover source deduplication, cross-publisher
+and chapter/verse links, inline placement, existing quote coverage, translation distinctions, Markdown
+structure, additional passages beyond the licensed batch, and preserving cards when the reveal stops.
+These iOS tests were compiled, not executed. Signing verification confirmed Apple sign-in and Keychain
+entitlements; `git diff --check` passed. No deployment, paid inference, or simulator UI automation was run.
 
 `BibleReference` parses and formats references, and `BibleBook` holds the 66 books with common abbreviations.
 

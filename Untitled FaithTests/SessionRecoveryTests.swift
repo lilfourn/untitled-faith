@@ -21,6 +21,47 @@ final class SessionRecoveryTests: XCTestCase {
 
     private func preferences() -> UserDefaults { UserDefaults(suiteName: "session-tests.\(UUID())")! }
 
+    func testOverlappingActivationWaitsForRestorationAndChecksAppleOnlyOnce() async {
+        var saved = stored()
+        saved.tokens = AuthenticationTokens(accessToken: "valid-access", refreshToken: "sealed-refresh",
+            expiresAt: Date().timeIntervalSince1970 + 600, sessionExpiresAt: Date().timeIntervalSince1970 + 86400)
+        SessionURLProtocol.handler = { _ in (503, Data()) }
+        let enteredCredentialCheck = expectation(description: "Credential check started")
+        let enteredSecondActivation = expectation(description: "Second activation started")
+        var continuation: CheckedContinuation<ASAuthorizationAppleIDProvider.CredentialState, Never>?
+        var checks = 0
+        var secondFinished = false
+        let session = AppSession(preferences: preferences(), api: api(), keychain: MemoryRecord(saved),
+            deletionStorage: MemoryRecord<PendingAccountDeletion>(nil), credentialState: { _ in
+                checks += 1
+                guard checks == 1 else { return .authorized }
+                return await withCheckedContinuation {
+                    continuation = $0
+                    enteredCredentialCheck.fulfill()
+                }
+            })
+        let first = Task { await session.becameActive() }
+        await fulfillment(of: [enteredCredentialCheck], timeout: 2)
+        first.cancel() // A scene task can be cancelled while Apple is checking the credential.
+        let second = Task {
+            enteredSecondActivation.fulfill()
+            await session.becameActive()
+            secondFinished = true
+        }
+        await fulfillment(of: [enteredSecondActivation], timeout: 2)
+        XCTAssertFalse(secondFinished)
+        XCTAssertFalse(session.isSignedIn)
+        continuation?.resume(returning: .authorized)
+        await first.value
+        await second.value
+        XCTAssertTrue(session.isSignedIn)
+        XCTAssertTrue(secondFinished)
+        XCTAssertEqual(checks, 1)
+        await session.becameActive()
+        XCTAssertEqual(checks, 2) // A later foreground activation still verifies revocation.
+        session.signOut()
+    }
+
     func testCredentialLookupOutagePreservesRecordAndAllowsRestorationRetry() async throws {
         let record = MemoryRecord(stored())
         var unavailable = true

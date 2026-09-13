@@ -7,6 +7,22 @@ final class ChatSessionTests: XCTestCase {
     override func setUp() { root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString) }
     override func tearDown() { try? FileManager.default.removeItem(at: root) }
 
+    func testPreparedHistoryPreservesUnreadableFilesAndCanReopenSavedConversation() throws {
+        let storage = LocalConversationStorage(namespace: "prepared-account", root: root)
+        var saved = Conversation()
+        saved.messages = [.question(id: UUID(), text: "Saved question")]
+        try storage.save(saved)
+        let unreadable = storage.directory.appendingPathComponent("unreadable.json")
+        try Data("invalid".utf8).write(to: unreadable)
+        let history = Result { try storage.summaries() }
+        let store = ChatStore(service: RecordingAnswerService(), storage: storage, initialHistory: history)
+        XCTAssertEqual(store.history.map(\.id), [saved.id])
+        XCTAssertNotNil(store.storageError)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: unreadable.path))
+        store.openConversation(saved.id)
+        XCTAssertEqual(store.conversation.messages.map(\.text), ["Saved question"])
+    }
+
     func testSubmissionClearsImmediatelyAndIgnoresStaleKeyboardUpdates() async throws {
         let service = RecordingAnswerService()
         let store = ChatStore(service: service)
@@ -66,6 +82,45 @@ final class ChatSessionTests: XCTestCase {
         let mayGenerateAgain = await store.checkRetry()
         XCTAssertTrue(mayGenerateAgain)
         XCTAssertEqual(service.requests.count, 1)
+    }
+
+    func testUsageLimitPromptKeepsQuestionAndClearsForRetry() async throws {
+        for failure in [AnswerServiceError.monthlyFreeLimit, .freePoolUnavailable, .fundingRequired] {
+            let service = RecordingAnswerService()
+            service.failure = failure
+            let storage = LocalConversationStorage(namespace: UUID().uuidString, root: root)
+            let store = ChatStore(service: service, storage: storage)
+            store.draft = "Keep my question"
+            await store.send(animate: false)
+            XCTAssertNotNil(store.usageLimitMessage)
+            XCTAssertTrue(store.canRetry)
+            XCTAssertEqual(try storage.load(store.conversation.id).messages.map(\.text), ["Keep my question"])
+
+            // Dismissal keeps the saved question; another blocked attempt presents again.
+            store.usageLimitMessage = nil
+            await (try XCTUnwrap(store.startSend(animate: false, retrying: true))).value
+            XCTAssertNotNil(store.usageLimitMessage)
+            XCTAssertEqual(store.conversation.messages.count, 1)
+
+            service.failure = nil
+            let retry = try XCTUnwrap(store.startSend(animate: false, retrying: true))
+            XCTAssertNil(store.usageLimitMessage)
+            await retry.value
+            XCTAssertNil(store.usageLimitMessage)
+            XCTAssertEqual(store.conversation.messages.map(\.text), ["Keep my question", "A streamed answer"])
+        }
+    }
+
+    func testOtherAnswerFailuresDoNotPromptForPayment() async {
+        for failure in [AnswerServiceError.rateLimited, .unavailable, .signInRequired, .timedOut] {
+            let service = RecordingAnswerService()
+            service.failure = failure
+            let store = ChatStore(service: service)
+            store.draft = "Question"
+            await store.send(animate: false)
+            XCTAssertNil(store.usageLimitMessage)
+            XCTAssertNotNil(store.errorMessage)
+        }
     }
 
     func testImmediateStopDoesNotStartInference() async throws {
@@ -230,7 +285,7 @@ final class ChatSessionTests: XCTestCase {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [StreamingURLProtocol.self]
         let client = ProxyAnswerService(endpoint: URL(string: "https://proxy.example/v1/answers")!,
-            accessToken: { "test-session" }, hasConsent: { true }, session: URLSession(configuration: config))
+            accessToken: { "test-session" }, session: URLSession(configuration: config))
         var updates: [String] = []
         let answer = try await client.streamAnswer(for: [.question(id: UUID(), text: "Hello")]) { text in
             updates.append(text)
@@ -245,7 +300,7 @@ final class ChatSessionTests: XCTestCase {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [StreamingURLProtocol.self]
         let client = ProxyAnswerService(endpoint: URL(string: "https://proxy.example/v1/answers")!,
-            accessToken: { "test-session" }, hasConsent: { true }, session: URLSession(configuration: config))
+            accessToken: { "test-session" }, session: URLSession(configuration: config))
         do {
             _ = try await client.streamAnswer(for: [.question(id: UUID(), text: "Hello")]) { _ in
                 StreamingURLProtocol.endWithoutDone?()

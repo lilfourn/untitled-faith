@@ -14,11 +14,22 @@ struct AccountUsage: Codable {
         let monthlyLimit: Int
         let usedThisMonth: Int
         let remainingThisMonth: Int
+
+        var remainingPercent: Int {
+            guard monthlyLimit > 0 else { return 0 }
+            return Int((min(1, max(0, Double(remainingThisMonth) / Double(monthlyLimit))) * 100).rounded(.down))
+        }
     }
     struct Funding: Codable {
         let balanceMicros: Int64
         let reservedMicros: Int64
         let availableMicros: Int64
+        var totalFundedMicros: Int64? = nil
+
+        // Older servers and cached snapshots do not include the funded total.
+        var displayTotalMicros: Int64 {
+            max(0, totalFundedMicros ?? balanceMicros, availableMicros)
+        }
     }
     struct Usage: Codable {
         let totalRequests: Int

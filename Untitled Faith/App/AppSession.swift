@@ -10,9 +10,6 @@ final class AppSession {
     private(set) var isDeletingAccount = false
     private(set) var authentication: StoredAuthentication?
     var signInError: String?
-    var aiSharingAllowed: Bool {
-        didSet { preferences.set(aiSharingAllowed, forKey: "aiAnswersEnabled") }
-    }
     let accountUsage: AccountUsageStore
     private let preferences: UserDefaults
     private let usageService: AccountUsageService?
@@ -27,6 +24,7 @@ final class AppSession {
     private var generation = UUID()
     private var didRestore = false
     @ObservationIgnored private var refreshTask: Task<AuthenticationTokens, Error>?
+    @ObservationIgnored private var activationTask: Task<Void, Never>?
 
     var isSignedIn: Bool { authentication != nil }
     var canSignIn: Bool { api != nil && !isSigningIn && !isRestoring && !hasPendingDeletion }
@@ -71,12 +69,12 @@ final class AppSession {
         return ProxyAnswerService(endpoint: url, accessToken: { [weak self] in
             guard let self else { throw AnswerServiceError.signInRequired }
             return try await self.proxyAccessToken()
-        }, hasConsent: { [weak self] in self?.aiSharingAllowed == true })
+        })
     }
 
     /// Verse cards: ESV through the backend when configured, cached on device within Crossway's limits,
     /// with the bundled public-domain translation as the offline fallback.
-    func makeScriptureQuoter() -> ScriptureQuoter {
+    func makeScriptureQuoter() async -> ScriptureQuoter {
         let service = api.map { api in
             ESVPassageClient(endpoint: api.baseURL.appendingPathComponent("v1/passages"), accessToken: { [weak self] in
                 guard let self else { throw AnswerServiceError.signInRequired }
@@ -84,8 +82,10 @@ final class AppSession {
             })
         }
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return ScriptureQuoter(service: service, cache: PassageCache(directory: support.appendingPathComponent("Passages", isDirectory: true)),
-                               fallback: BibleStore.bundled)
+        return await Task.detached(priority: .userInitiated) {
+            ScriptureQuoter(service: service, cache: PassageCache(directory: support.appendingPathComponent("Passages", isDirectory: true)),
+                            fallback: BibleStore.bundled)
+        }.value
     }
 
     private func proxyAccessToken() async throws -> String {
@@ -112,7 +112,6 @@ final class AppSession {
         self.credentialState = credentialState
         accountUsage = AccountUsageStore(preferences: preferences)
         usageService = api.map { AccountUsageService(baseURL: $0.baseURL, session: $0.session) }
-        aiSharingAllowed = preferences.object(forKey: "aiAnswersEnabled") as? Bool ?? true
         #if DEBUG
         isPreview = ProcessInfo.processInfo.arguments.contains("--preview-chat")
         #endif
@@ -214,13 +213,29 @@ final class AppSession {
     }
 
     func becameActive() async {
+        if let activationTask {
+            await activationTask.value
+            return
+        }
+        // Scene changes and payment links can overlap. Keep restoration alive if one caller leaves.
+        let task = Task { await refreshActiveSession() }
+        activationTask = task
+        await task.value
+        activationTask = nil
+    }
+
+    private func refreshActiveSession() async {
         if hasPendingDeletion {
             await resumeAccountDeletion()
             guard !hasPendingDeletion else { return }
         }
-        await restoreSession(retry: true)
-        await checkAppleCredential()
-        refreshUsage(force: true)
+        if !didRestore || canRetryRestoration {
+            // Restoration already checks Apple and starts the usage refresh.
+            await restoreSession(retry: true)
+        } else if !isRestoring {
+            await checkAppleCredential()
+            refreshUsage(force: true)
+        }
     }
 
     func handleCredentialRevocation() {

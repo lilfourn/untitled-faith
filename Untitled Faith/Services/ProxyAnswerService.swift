@@ -4,7 +4,6 @@ struct ProxyAnswerService: AnswerService {
     static let consentVersion = "2026-09-09-openrouter-fallbacks"
     let endpoint: URL
     let accessToken: @MainActor () async throws -> String
-    let hasConsent: @MainActor () -> Bool
     var session: URLSession = makeSession()
 
     static func makeSession() -> URLSession {
@@ -84,7 +83,6 @@ struct ProxyAnswerService: AnswerService {
               endpoint.query == nil, endpoint.fragment == nil else {
             throw AnswerServiceError.invalidConfiguration
         }
-        guard await hasConsent() else { throw AnswerServiceError.consentRequired }
         let token = try await accessToken()
         guard !token.isEmpty else { throw AnswerServiceError.signInRequired }
         let context = try Self.context(from: messages)

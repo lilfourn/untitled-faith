@@ -3,7 +3,7 @@ import XCTest
 
 @MainActor
 final class ProxyAnswerServiceTests: XCTestCase {
-    private func service(consent: Bool = true, token: String = "test-session", status: Int = 200,
+    private func service(token: String = "test-session", status: Int = 200,
                          body: String = #"{"answer":{"text":"Test answer","scripture":[],"commentary":[]},"requestID":"test"}"#,
                          inspect: @escaping (URLRequest) -> Void = { _ in }) -> ProxyAnswerService {
         let config = URLSessionConfiguration.ephemeral
@@ -13,7 +13,7 @@ final class ProxyAnswerServiceTests: XCTestCase {
             return (HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!, Data(body.utf8))
         }
         return ProxyAnswerService(endpoint: URL(string: "https://proxy.example/v1/answers")!,
-                                  accessToken: { token }, hasConsent: { consent }, session: URLSession(configuration: config))
+                                  accessToken: { token }, session: URLSession(configuration: config))
     }
 
     func testRetryStatusIsReadOnlyAndDoesNotSendConversationContent() async throws {
@@ -60,25 +60,23 @@ final class ProxyAnswerServiceTests: XCTestCase {
         XCTAssertTrue(result.scripture.isEmpty)
     }
 
-    func testNoConsentOrSessionPreventsNetworking() async {
-        for client in [service(consent: false), service(token: "")] {
-            StubURLProtocol.handler = { _ in
-                XCTFail("Request must not be sent")
-                throw URLError(.badServerResponse)
-            }
-            do {
-                _ = try await client.answer(for: [.question(id: UUID(), text: "Hello")])
-                XCTFail("Expected an error")
-            } catch {
-                XCTAssertTrue(error is AnswerServiceError)
-            }
+    func testNoSessionPreventsNetworking() async {
+        let client = service(token: "")
+        StubURLProtocol.handler = { _ in
+            XCTFail("Request must not be sent")
+            throw URLError(.badServerResponse)
+        }
+        do {
+            _ = try await client.answer(for: [.question(id: UUID(), text: "Hello")])
+            XCTFail("Expected an error")
+        } catch {
+            XCTAssertEqual(error.localizedDescription, AnswerServiceError.signInRequired.localizedDescription)
         }
     }
 
     func testRejectsInsecureEndpointBeforeSending() async {
         let client = ProxyAnswerService(endpoint: URL(string: "http://proxy.example/v1/answers")!,
-                                        accessToken: { XCTFail("Must reject URL before reading token"); return "" },
-                                        hasConsent: { true })
+                                        accessToken: { XCTFail("Must reject URL before reading token"); return "" })
         do {
             _ = try await client.answer(for: [.question(id: UUID(), text: "Hello")])
             XCTFail("Expected an error")

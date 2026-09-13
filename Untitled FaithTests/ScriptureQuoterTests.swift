@@ -11,10 +11,12 @@ final class ScriptureQuoterTests: XCTestCase {
     private final class StubService: PassageFetching {
         var responses: [BibleReference: String]
         var calls = 0
+        var requested: [BibleReference] = []
         var failing = false
         init(_ responses: [BibleReference: String]) { self.responses = responses }
         func passages(for references: [BibleReference]) async throws -> QuotedPassages {
             calls += 1
+            requested = references
             if failing { throw PassageServiceError.unavailable }
             return QuotedPassages(translation: "ESV", passages: responses.filter { references.contains($0.key) })
         }
@@ -45,6 +47,19 @@ final class ScriptureQuoterTests: XCTestCase {
         let quoter = ScriptureQuoter(service: nil, cache: nil, fallback: try XCTUnwrap(BibleStore.bundled))
         let citations = await quoter.citations(for: [try XCTUnwrap(BibleReference.parse("1 John 4:19")), try XCTUnwrap(BibleReference.parse("Jude 9:9"))])
         XCTAssertEqual(citations.map { "\($0.reference) \($0.translation)" }, ["1 John 4:19 BSB"])
+    }
+
+    func testImmediateCardsNeedNoNetworkAndIncludeReferencesBeyondTheLicensedBatch() async throws {
+        let references = try (1...10).map { try XCTUnwrap(BibleReference.parse("John 3:\($0)")) }
+        let service = StubService([:])
+        let quoter = ScriptureQuoter(service: service, cache: nil, fallback: try XCTUnwrap(BibleStore.bundled))
+        let immediate = quoter.availableCitations(for: references + [references[0]])
+        XCTAssertEqual(immediate.map(\.reference), references.map(\.description))
+        XCTAssertTrue(immediate.allSatisfy { $0.translation == "BSB" && !$0.passage.isEmpty })
+        XCTAssertEqual(service.calls, 0)
+        let resolved = await quoter.citations(for: [references[0]] + references)
+        XCTAssertEqual(service.requested, Array(references.prefix(8)))
+        XCTAssertEqual(resolved.map(\.reference), references.map(\.description))
     }
 
     func testCacheEvictsLeastRecentlyUsedBeyondVerseLimit() throws {

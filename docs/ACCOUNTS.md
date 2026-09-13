@@ -23,7 +23,7 @@ Migration 0003 records `developer_share_bps` and `developer_share_micros` on eac
 
 The legacy `creditContribution` boundary rejects duplicate ownership claims and credits a payment only once. `reverseContribution` reverses funding once; spending before a refund can leave a negative balance. Neither function is exposed as a client-writable endpoint.
 
-Luke selected **Stripe Checkout with Apple Pay**, custom contribution amounts, and a separate Untitled Faith Stripe account on September 10, 2026. The deployed integration uses sealed checkout intents, signed webhooks, current Stripe API data, and independent usage/developer allocations in migration `0008_stripe_payments.sql`. When fees are delayed it grants an estimated credit, then reconciles the actual fee. The owner-only Payment overview tallies both allocations. Production Standard Checkout is enabled on the separate Untitled Faith account. Sandbox payment/refund verification passed, and live session creation/expiry and Apple Pay availability were checked without collecting a live payment. See [payment implementation and activation](PAYMENTS.md).
+Luke selected **Stripe Checkout with Apple Pay**, custom contribution amounts, and a separate Untitled Faith Stripe account on September 10, 2026. The deployed integration uses sealed checkout intents, signed webhooks, current Stripe API data, and independent usage/developer allocations in migration `0008_stripe_payments.sql`. When fees are delayed it grants an estimated credit, then reconciles the actual fee. The owner-only payment API tallies both allocations; its Settings link was removed. Production Standard Checkout is enabled on the separate Untitled Faith account. Sandbox payment/refund verification passed, and live session creation/expiry and Apple Pay availability were checked without collecting a live payment. See [payment implementation and activation](PAYMENTS.md).
 
 ## Interrupted requests
 
@@ -33,14 +33,18 @@ A cron every 15 minutes checks uncertain requests with a provider generation ID 
 
 ## App display
 
-`GET /v1/me/usage` returns only the authenticated account's summary. Settings shows a single usage
-progress bar and percentage, without daily/monthly counts, reset notices, or pending-request details.
+`GET /v1/me/usage` returns only the authenticated account's summary. Settings shows the free allowance
+as the main percentage bar. After funding is added, an **Extra usage** bar underneath shows spendable
+USD remaining, excluding active reservations. Its capacity is `funding.totalFundedMicros`: current
+balance plus all settled paid usage, so it includes net Stripe and legacy funding after fees/refunds
+and carries across months. A spent balance stays visible as $0.00 when its funded total is positive.
+Older servers/caches fall back to the current balance as capacity until the new API field is available.
 The monthly allowance can be used entirely in one day. Older clients still receive compatible daily
 fields, but their remaining-today value equals the entire remaining monthly allowance and their reset
 is the monthly reset. Migration `0006_monthly_only_allowance.sql` removes the database's daily check;
 the historical `free_daily_limit` ledger column is no longer enforced.
 
-For a single bar covering both free questions and personal funding, the percentage is a display-only normalization: each free question has the planning weight of $0.02 plus the 5.5% acquisition fee; paid funding uses its actual available value. The denominator includes the month's starting paid balance, net added funding, and the full free allowance. The percentage is approximate; it never authorizes spending, bypasses monthly limits, or guarantees the shared pool remains available.
+For older clients with a single bar covering both free questions and personal funding, the percentage is a display-only normalization: each free question has the planning weight of $0.02 plus the 5.5% acquisition fee; paid funding uses its actual available value. The denominator includes the month's starting paid balance, net added funding, and the full free allowance. The percentage is approximate; it never authorizes spending, bypasses monthly limits, or guarantees the shared pool remains available.
 
 ## Account deletion
 

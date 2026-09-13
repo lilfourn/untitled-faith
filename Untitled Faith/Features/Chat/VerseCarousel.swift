@@ -4,6 +4,7 @@ import SwiftUI
 /// repeating the last one shown, including across launches.
 struct VerseCarousel: View {
     let draw: (String) async -> ScriptureCitation?
+    let onFirstLoad: () -> Void
     var interval: Duration = .seconds(10)
     @State private var verse: ScriptureCitation?
     @State private var isLoading = true
@@ -11,9 +12,11 @@ struct VerseCarousel: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(draw: @escaping (String) async -> ScriptureCitation?, interval: Duration = .seconds(10)) {
+    init(draw: @escaping (String) async -> ScriptureCitation?, interval: Duration = .seconds(10),
+         onFirstLoad: @escaping () -> Void = {}) {
         self.draw = draw
         self.interval = interval
+        self.onFirstLoad = onFirstLoad
     }
 
     var body: some View {
@@ -33,7 +36,8 @@ struct VerseCarousel: View {
         }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
-            await drawVerse(animated: false)
+            // Returning from the background keeps the current verse and restarts its interval.
+            if verse == nil { await drawVerse(animated: true) }
             await cycle()
         }
     }
@@ -41,12 +45,15 @@ struct VerseCarousel: View {
     private func drawVerse(animated: Bool) async {
         let next = await draw(lastReference)
         guard !Task.isCancelled else { return }
-        isLoading = false
-        guard let next else { return }
-        withAnimation(animated && !reduceMotion ? .easeInOut(duration: 0.8) : nil) {
-            verse = next
-            lastReference = next.reference
+        let isFirstLoad = isLoading
+        withAnimation(animated && !reduceMotion ? .easeInOut(duration: isFirstLoad ? 0.25 : 0.8) : nil) {
+            isLoading = false
+            if let next {
+                verse = next
+                lastReference = next.reference
+            }
         }
+        if isFirstLoad { onFirstLoad() }
     }
 
     private func cycle() async {

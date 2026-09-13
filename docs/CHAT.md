@@ -2,9 +2,15 @@
 
 September 9, 2026. User decisions: keep conversations on the phone, make them reopenable/deletable, and send the **whole conversation plus the new message on every request**. Do not silently truncate or summarize. The initial harness left retrieval outside its scope; [approved web search](WEB_SEARCH.md) was subsequently added at the user’s request. The two informational notices above the chat were removed at the user's request; storage/privacy details remain in Settings.
 
-The user subsequently removed the “Allow AI answers?” popup. Send now goes directly to the answer service. AI answers default on; Settings has an on/off switch whose value persists on the device. The existing `consentVersion` wire field is retained for compatibility with the deployed API; it is not a record of an explicit popup opt-in.
+The user subsequently removed the “Allow AI answers?” popup. Send now goes directly to the answer service. The Settings switch was also removed at the user’s request on September 11; the app no longer reads the old device preference, so a previously saved off value cannot block sending. The existing `consentVersion` wire field is retained for compatibility with the deployed API; it is not a record of an explicit popup opt-in.
 
 ## Storage and context
+
+When a send is rejected because the monthly free allowance is exhausted, the shared free pool is
+unavailable, or extra funding cannot cover the request, chat presents **Add usage to continue** with
+**Open Settings** and **Not now**. The question stays saved for an explicit retry after adding usage.
+The server can continue using an existing funded balance without prompting; other service errors do
+not trigger this popup.
 
 `LocalConversationStorage` stores one versioned JSON file per conversation under Application Support. Directories are scoped by a hash of the backend and Apple app-specific identity, with a separate preview namespace. Files use atomic replacement and iOS data protection, and the directory is excluded from backups. There is no cloud chat table, sync service, or new D1 migration.
 
