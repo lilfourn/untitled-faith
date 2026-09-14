@@ -2,9 +2,33 @@
 
 Updated September 14, 2026.
 
+## Settings note update 1.0.9 — September 14
+
+Worker version **`a3e82bd0-f30b-4d3b-ba27-b1c14f475919`** serves 100% of production traffic.
+Answers omit the introductory prayer and Christian growth reminder; the 1.0.9 client displays
+that reminder as a general note in Settings. The release retains the citation reliability hotfix.
+Source commit `8859eec` and release settings commit `024aece` were pushed to `origin/main`.
+
+The fixed snapshot `.dev/release-settings-20260914-8859eec` passed `./scripts/dev check`:
+Bible index consistency, TypeScript, **404 Workers tests**, recovery/payment script tests, and
+the deployment dry run. All 239 snapshot files matched the source commit before release.
+Local payment-reporting edits remain outside this release. Deployment used the installed Wrangler
+with `--keep-vars --strict`; no migration, variable, or secret changes were required. Previous
+production version: `f2327dc6-bcdf-4740-bb69-6ebabcdd1f55`.
+
+Wrangler confirmed 100% traffic on the new version. Checks against the URL in the signed
+**1.0.9 (14)** archive returned health HTTP 200 and invalid Apple credential rejection HTTP 401.
+This release did not run paid inference, live payments, iOS tests, or simulator UI automation.
+Live model adherence to the new opening guidance remains unverified.
+
+Logs: `.dev/release-settings-20260914-8859eec/.dev/logs/backend-tests-20260914-132117-42779.log`,
+`.dev/logs/release-1.0.9-worker-deploy.log`, `.dev/logs/release-1.0.9-worker-status.json`, and
+`.dev/logs/release-1.0.9-auth-check.log`. Release metadata: `.dev/release-settings-20260914.json`.
+See [the TestFlight record](../docs/TESTFLIGHT.md) for the client upload.
+
 ## Citation reliability hotfix — September 14
 
-Worker version **`f2327dc6-bcdf-4740-bb69-6ebabcdd1f55`** serves 100% of production traffic.
+Worker version **`f2327dc6-bcdf-4740-bb69-6ebabcdd1f55`** previously served 100% of production traffic.
 Existing TestFlight clients receive this fix without an app update. Parenthesized citations and
 adjacent links previously failed with `sources_unavailable`: the final validator's greedy URL
 expression included closing prose punctuation or the next link. Repair and validation now share

@@ -261,3 +261,30 @@ Extra usage, and the contribution review screen. **Automatically notify testers*
 was enabled at submission. External access awaits Apple's approval; phone
 installation remains unverified. No new archive, upload, version increment,
 backend deployment, or App Store release was performed for this submission.
+
+
+## Settings note update 1.0.9
+
+On September 14, 2026, **1.0.9 (build 14)** uploaded successfully to App Store Connect and
+Apple accepted it for processing. Settings now contains “A note on using Untitled Faith” below
+Dark mode. The backend omits that reminder from generated answers, including new conversations,
+and retains the citation reliability hotfix deployed earlier that day.
+
+Source commit: `8859eec`; release settings: `024aece`, pushed to `origin/main`.
+Archive: `DerivedData/Archives/Untitled Faith-20260914-132117-14.xcarchive`.
+Archive log: `.dev/logs/archive-20260914-132117-42780.log`.
+Upload log: `.dev/logs/testflight-upload-20260914-132317-45057.log`.
+Signed archiving verified version/build, Apple sign-in, and Keychain identity. The archive uses
+the production backend URL. The tracked Xcode project reflects the versions in `project.yml`.
+
+The fixed source snapshot passed `./scripts/dev check`: Bible index consistency, TypeScript,
+**404 Workers tests**, recovery/payment script tests, and deployment dry run. Source verification
+confirmed all 239 snapshot files matched `8859eec`. Backend version
+`a3e82bd0-f30b-4d3b-ba27-b1c14f475919` serves 100% of production traffic. Health returned HTTP 200,
+and invalid Apple credentials were rejected with HTTP 401. See the [backend record](../backend/DEPLOYMENT.md).
+No paid inference, live payments, iOS tests, or simulator UI automation ran for this release.
+
+Apple reported “Uploaded package is processing,” “Upload succeeded,” and `EXPORT SUCCEEDED`.
+Processing completion and phone installation remain unverified. Personal Testing retains
+automatic build distribution. This upload does not submit the new build for external beta review
+or publish an App Store release. Existing local payment-reporting edits remain uncommitted.
