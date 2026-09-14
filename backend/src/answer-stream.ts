@@ -5,33 +5,39 @@ import { InferenceError } from './openrouter';
 import { streamAnswer } from './openrouter-stream';
 import { holdUncertainUsage, releaseUsage, settleUsage } from './usage';
 import type { BibleContext } from './bible/types';
+import { answerEvent } from './answer-events';
 
 export function answerStream(request: Request, env: Env, messages: Message[], userID: string,
   reservationID: string, requestID: string, ctx?: ExecutionContext, firstName: string | null = null,
   bibleContext?: BibleContext, allowFallback = true): Response {
   const abort = new AbortController();
   const signal = AbortSignal.any([request.signal, abort.signal, AbortSignal.timeout(45000)]);
-  const encoder = new TextEncoder();
   let cancelled = false;
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       const send = (value: unknown) => {
-        if (!cancelled) controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));
+        if (!cancelled) controller.enqueue(answerEvent(value));
       };
       const work = (async () => {
         const started = Date.now();
         let status = 200;
         let errorCode: string | undefined;
+        let answerLength: number | undefined;
+        let sourceCount: number | undefined;
+        let quoteCount: number | undefined;
         try {
           send({ type: 'start', requestID });
           const result = await reviewedAnswer(env.DB, reservationID, messages, env.OPENROUTER_API_KEY, userID, signal,
-            () => streamAnswer(messages, env.OPENROUTER_API_KEY, userID, signal,
+            intent => streamAnswer(messages, env.OPENROUTER_API_KEY, userID, signal,
             async id => {
               // Keep only accounting metadata for recovery; chat text is never stored here.
               await env.DB.prepare("UPDATE usage_requests SET generation_id = ? WHERE id = ? AND status = 'reserved'")
                 .bind(id, reservationID).run();
-            }, firstName, bibleContext, true, allowFallback), allowFallback);
+            }, firstName, bibleContext, intent, allowFallback), allowFallback);
           await settleUsage(env.DB, reservationID, result.usage);
+          answerLength = result.text.length;
+          sourceCount = result.sources?.length ?? 0;
+          quoteCount = result.quotes?.length ?? 0;
           // Never expose provider text before the complete moderation and source checks.
           send({ type: 'delta', text: result.text });
           send({ type: 'done', answer: { text: result.text, scripture: [], commentary: [],
@@ -51,7 +57,8 @@ export function answerStream(request: Request, env: Env, messages: Message[], us
           send({ type: 'error', error: { code: failure.code, status: failure.status }, requestID });
         } finally {
           if (!cancelled) controller.close();
-          console.log(JSON.stringify({ event: 'answer_stream_completed', requestID, status, errorCode, durationMS: Date.now() - started }));
+          console.log(JSON.stringify({ event: 'answer_stream_completed', requestID, status, errorCode,
+            cancelled, answerLength, sourceCount, quoteCount, durationMS: Date.now() - started }));
         }
       })();
       ctx?.waitUntil(work);

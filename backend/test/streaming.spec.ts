@@ -21,6 +21,21 @@ const finished = (reason = 'stop') => frame({ ...chunk('', reason), usage }) + '
 const response = (text: string) => new Response(text, { headers: { 'Content-Type': 'text/event-stream' } });
 let bearer: string;
 
+it('escapes Unicode line separators on the wire without changing approved text or charging again', async () => {
+  const text = 'Patience\u0085grows\u2028with practice\u2029🙏';
+  upstream.mockResolvedValue(response(frame(chunk(allowed(text))) + finished()));
+  const wire = await (await worker.fetch(request(), env)).text();
+  expect(wire).not.toMatch(/[\u0085\u2028\u2029]/);
+  const events = wire.split(/\r\n|[\n\r\u0085\u2028\u2029]/)
+    .filter(line => line.startsWith('data: ')).map(line => JSON.parse(line.slice(6)));
+  expect(events.map(event => event.type)).toEqual(['start', 'delta', 'done']);
+  expect(events[1].text).toBe(text);
+  expect(events[2].answer.text).toBe(text);
+  expect(upstream).toHaveBeenCalledTimes(1);
+  expect(await env.DB.prepare('SELECT status, cost_micros FROM usage_requests').first())
+    .toEqual({ status: 'settled', cost_micros: 1161 });
+});
+
 beforeEach(async () => {
   vi.stubGlobal('fetch', withApprovedReview(upstream));
   upstream.mockReset().mockImplementation(async () => response(frame(chunk(allowed('Hello 🙏'))) + finished()));

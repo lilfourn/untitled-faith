@@ -7,11 +7,11 @@ import { InferenceError, type AnswerGeneration } from './openrouter';
 import type { InferenceUsage } from './usage';
 
 export { REVIEW_MODEL, type ReviewDecision } from './review-policy';
-import { REVIEW_ROUTES, REVIEW_INPUT_PRICE, REVIEW_OUTPUT_PRICE, REVIEW_MAX_TOKENS, REVIEW_PROMPT, REVIEW_FORMAT, type ReviewDecision } from './review-policy';
+import { REVIEW_ROUTES, REVIEW_INPUT_PRICE, REVIEW_OUTPUT_PRICE, REVIEW_MAX_TOKENS, REVIEW_PROMPT, REVIEW_FORMAT, type AnswerIntent, type ReviewDecision } from './review-policy';
 
 export function parseReview(content: unknown): ReviewDecision {
   // A single enum needs no JSON repair. Anchoring also rejects duplicate fields.
-  const match = typeof content === 'string' && /^\s*\{\s*"decision"\s*:\s*"(answer|off_topic|unsafe|crisis)"\s*\}\s*$/.exec(content);
+  const match = typeof content === 'string' && /^\s*\{\s*"decision"\s*:\s*"(answer|clarify|off_topic|unsafe|crisis)"\s*\}\s*$/.exec(content);
   if (!match) throw new Error('Invalid review');
   return match[1] as ReviewDecision;
 }
@@ -61,19 +61,19 @@ export async function reviewRequest(messages: Message[], apiKey: string, userID:
 }
 
 export async function reviewedAnswer(db: D1Database, reservationID: string, messages: Message[], apiKey: string,
-  userID: string, signal: AbortSignal, generate: () => Promise<AnswerGeneration>, allowFallback = true): Promise<AnswerGeneration> {
+  userID: string, signal: AbortSignal, generate: (intent: AnswerIntent) => Promise<AnswerGeneration>, allowFallback = true): Promise<AnswerGeneration> {
   if (signal.aborted) throw new InferenceError(504, 'answer_timeout', 'unbilled');
   await db.prepare("UPDATE usage_requests SET inference_stage = 'review', updated_at = ? WHERE id = ? AND status = 'reserved'")
     .bind(Date.now(), reservationID).run();
   const review = await reviewRequest(messages, apiKey, userID, signal, async id => {
     await db.prepare("UPDATE usage_requests SET generation_id = ? WHERE id = ? AND status = 'reserved'").bind(id, reservationID).run();
   }, allowFallback);
-  if (review.decision !== 'answer') return { text: POLICY_RESPONSES[review.decision], usage: review.usage };
+  if (review.decision !== 'answer' && review.decision !== 'clarify') return { text: POLICY_RESPONSES[review.decision], usage: review.usage };
   // Checkpoint the first call before starting another. Settlement and reconciliation
   // add these costs exactly once; generation_id now belongs to the answer call.
   await db.prepare(`UPDATE usage_requests SET review_cost_micros = ?, review_prompt_tokens = ?,
     review_completion_tokens = ?, generation_id = NULL, inference_stage = 'answer', updated_at = ? WHERE id = ? AND status = 'reserved'`)
     .bind(review.usage.costMicros, review.usage.promptTokens, review.usage.completionTokens, Date.now(), reservationID).run();
   if (signal.aborted) throw new InferenceError(504, 'answer_timeout', { costMicros: 0, promptTokens: 0, completionTokens: 0 });
-  return generate();
+  return generate(review.decision);
 }

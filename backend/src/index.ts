@@ -83,7 +83,7 @@ export default {
       let result;
       try {
         result = await reviewedAnswer(env.DB, reservation.id, messages, env.OPENROUTER_API_KEY, userID, signal,
-          () => generateAnswer(messages, env.OPENROUTER_API_KEY, userID, signal, account.first_name, bibleContext, true, allowFallback), allowFallback);
+          intent => generateAnswer(messages, env.OPENROUTER_API_KEY, userID, signal, account.first_name, bibleContext, intent, allowFallback), allowFallback);
       } catch (error) {
         if (error instanceof InferenceError && error.accounting === "unbilled") await releaseUsage(env.DB, reservation.id);
         else if (error instanceof InferenceError && typeof error.accounting === "object") await settleUsage(env.DB, reservation.id, error.accounting);

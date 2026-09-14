@@ -16,7 +16,8 @@ struct ContributionWizard: View {
             navigation
             ZStack {
                 if step == 0 { ContributionAmountStep(draft: $draft).transition(stepTransition) }
-                else { DeveloperThanksStep(draft: $draft).transition(stepTransition) }
+                else if step == 1 { DeveloperThanksStep(draft: $draft).transition(stepTransition) }
+                else { ContributionSummaryStep(selection: draft.selection).transition(stepTransition) }
             }
             .clipped()
         }
@@ -42,14 +43,14 @@ struct ContributionWizard: View {
         HStack {
             Button {
                 movingForward = false
-                step = 0
+                step = max(0, step - 1)
             } label: {
                 Image(systemName: "chevron.left").font(.subheadline.weight(.medium)).frame(width: 44, height: 44)
             }
             .opacity(step == 0 ? 0 : 1)
             .disabled(step == 0 || isContinuing)
             .accessibilityHidden(step == 0)
-            .accessibilityLabel("Back to contribution amount")
+            .accessibilityLabel(step == 2 ? "Back to developer share" : "Back to contribution amount")
             Spacer()
             Button { dismiss() } label: {
                 Image(systemName: "xmark").font(.footnote.weight(.semibold)).frame(width: 44, height: 44)
@@ -65,15 +66,17 @@ struct ContributionWizard: View {
     private var continueButton: some View {
         VStack(spacing: 12) {
             Button {
-                if step == 0 {
+                if step < 2 {
                     movingForward = true
-                    step = 1
+                    step += 1
                 } else {
+                    guard !isContinuing else { return }
+                    isContinuing = true
+                    let selection = draft.selection
                     Task {
-                        isContinuing = true
                         defer { isContinuing = false }
                         do {
-                            try await checkout.begin(draft.selection)
+                            try await checkout.begin(selection)
                             if usesBrowserCheckout { dismiss() }
                         }
                         catch { checkoutError = error.localizedDescription }
@@ -82,9 +85,9 @@ struct ContributionWizard: View {
             } label: {
                 HStack(spacing: 10) {
                     if isContinuing { ProgressView().tint(AppTheme.background) }
-                    Text(step == 0 ? "Next" : "Continue · \(draft.amountFormatted)")
+                    Text(step == 0 ? "Next" : step == 1 ? "Review payment" : "Buy now · \(draft.amountFormatted)")
                         .font(.subheadline.weight(.semibold))
-                    if step == 0 { Image(systemName: "arrow.right").font(.subheadline.weight(.semibold)) }
+                    if step < 2 { Image(systemName: "arrow.right").font(.subheadline.weight(.semibold)) }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 15)
@@ -95,12 +98,12 @@ struct ContributionWizard: View {
             .disabled(!draft.canContinue || isContinuing)
             .opacity(draft.canContinue ? 1 : 0.3)
             .accessibilityIdentifier("contribution-continue")
-            .accessibilityLabel(step == 0 ? "Next" : "Continue with \(draft.amountFormatted)")
+            .accessibilityLabel(step == 0 ? "Next" : step == 1 ? "Review payment" : "Buy now for \(draft.amountFormatted)")
             if step == 0 && draft.amountCents > 0 && !draft.canContinue {
                 Text("Minimum $1").font(.caption).foregroundStyle(.secondary)
             }
-            if step == 1 && usesBrowserCheckout {
-                Text("Continue opens secure checkout in your browser. Apple Pay is available on supported devices. Usage funding is credited after payment fees and your selected share; fees may be adjusted after settlement.")
+            if step == 2 && usesBrowserCheckout {
+                Text("Buy now opens secure checkout in your browser, where you confirm payment. Apple Pay is available on supported devices.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

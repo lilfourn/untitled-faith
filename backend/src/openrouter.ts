@@ -10,6 +10,7 @@ import { WEB_SEARCH_TOOL, SEARCH_CALLS } from "./web-search";
 import { SourceValidationError, AnswerSources, type AnswerSource, type AnswerQuote } from "./answer-sources";
 import { biblePrompt, retrieveBible } from "./bible/context";
 import type { BibleContext } from "./bible/types";
+import type { AnswerIntent } from './review-policy';
 
 export class InferenceError extends APIError {
   constructor(status: number, code: string, readonly accounting: InferenceUsage | "unbilled" | "uncertain", readonly generationID?: string) {
@@ -20,14 +21,14 @@ export class InferenceError extends APIError {
 export type AnswerGeneration = { text: string; usage: InferenceUsage; sources?: AnswerSource[]; quotes?: AnswerQuote[] };
 
 export async function generateAnswer(messages: Message[], apiKey: string, userID: string, signal: AbortSignal,
-  firstName: string | null = null, bibleContext: BibleContext = retrieveBible(messages), relevanceVerified = false, allowFallback = true): Promise<AnswerGeneration> {
+  firstName: string | null = null, bibleContext: BibleContext = retrieveBible(messages), intent?: AnswerIntent, allowFallback = true): Promise<AnswerGeneration> {
   let generationID: string | undefined;
   let accounting: InferenceUsage | "uncertain" = "uncertain";
   let stage = "request";
   let upstreamStatus: number | undefined;
   let upstreamErrorCode: number | undefined;
   try {
-    const response = await requestCompletion(messages, apiKey, userID, signal, false, bibleContext, firstName, relevanceVerified, allowFallback);
+    const response = await requestCompletion(messages, apiKey, userID, signal, false, bibleContext, firstName, intent, allowFallback);
     upstreamStatus = response.status;
     stage = "http_status";
     if (!response.ok) {
@@ -79,16 +80,16 @@ export async function generateAnswer(messages: Message[], apiKey: string, userID
 }
 
 export function requestCompletion(messages: Message[], apiKey: string, userID: string, signal: AbortSignal, stream: boolean,
-  bibleContext: BibleContext = retrieveBible(messages), firstName: string | null = null, relevanceVerified = false, allowFallback = true): Promise<Response> {
+  bibleContext: BibleContext = retrieveBible(messages), firstName: string | null = null, intent?: AnswerIntent, allowFallback = true): Promise<Response> {
   return requestWithRateLimitFallback({
         // The subject must be an opaque app account ID, never an Apple ID or email.
         user: userID,
-        messages: [{ role: "system", content: answerSystemPrompt(firstName, messages) + (relevanceVerified ? '\nAn independent request reviewer has approved the latest request as relevant in this conversation. Answer its faith or pastoral aspect, or ask a brief clarifying question if needed. Do not reclassify a respectful interfaith question as off_topic. Continue enforcing all safety and source requirements on your answer.' : '') + '\n\n' + biblePrompt(bibleContext) }, ...messages],
+        messages: [{ role: "system", content: answerSystemPrompt(firstName, messages, intent) +
+          (intent === 'clarify' ? '' : '\n\n' + biblePrompt(bibleContext)) }, ...messages],
         provider: { data_collection: "deny", require_parameters: true,
           max_price: { prompt: MAX_INPUT_PRICE, completion: MAX_OUTPUT_PRICE, request: 0 } },
         response_format: MODERATED_RESPONSE_FORMAT,
-        tools: [WEB_SEARCH_TOOL],
-        max_tool_calls: SEARCH_CALLS,
+        ...(intent === 'clarify' ? {} : { tools: [WEB_SEARCH_TOOL], max_tool_calls: SEARCH_CALLS }),
         stream,
         ...(stream ? { stream_options: { include_usage: true } } : {}),
         max_tokens: MAX_OUTPUT_TOKENS,

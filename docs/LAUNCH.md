@@ -20,9 +20,13 @@ Instruments recording or a measured signed-in launch.
 
 ## Implemented behavior
 
-The system launch screen and app share the `AppBackground` light/dark asset. A neutral progress
-screen stays visible while the initial session is resolved. Only a resolved signed-out state
-displays sign-in. Apple verification, renewal, expiry, revocation, and deletion rules still apply.
+The system launch screen and app share the `AppBackground` light/dark asset. At Luke's request,
+the in-app loading screen shows Proverbs 18:15 (ESV) instead of a spinner while the initial session
+and chat resources are prepared: "An intelligent heart acquires knowledge, and the ear of the wise
+seeks knowledge." The supplied text is built into the screen, so it appears without a network request.
+Centered serif text scales with Dynamic Type and scrolls if needed at large text sizes or in landscape.
+Only a resolved signed-out state displays sign-in. Apple verification, renewal, expiry, revocation,
+and deletion rules still apply.
 
 Overlapping activations await one session task, including when an earlier scene task is cancelled.
 Restoration checks Apple once; later foreground activations continue to check for revocation.
@@ -43,10 +47,14 @@ request finishes. The existing authentication request timeout remains 25 seconds
 The reveal uses a **0.25-second fade**, disabled by Reduce Motion. A late first verse also fades
 in. Returning from the background keeps the visible verse and restarts its ten-second cycle;
 it does not replay startup. A new launch still chooses a fresh ESV verse from the complete Bible,
-excluding the last reference. No additional passage cache or stored ESV text was introduced.
+excluding the last reference. The fixed loading-screen verse is separate from the carousel and
+passage cache. No minimum display duration is added; the app opens as soon as preparation finishes.
 
 ## Verification
 
+- Proverbs 18:15 loading screen: `./scripts/dev run` passed the signed build, verified Apple
+  sign-in and Keychain entitlements, and installed/launched normally on the iPhone 17 simulator.
+  Log: `.dev/logs/build-Debug-20260913-165944-15073.log`. Visual layout was not automated.
 - `./scripts/dev build`: passed; Apple sign-in and Keychain entitlements verified.
   Log: `.dev/logs/build-Debug-20260913-163003-58364.log`.
 - `./scripts/dev build-tests`: passed compilation of the signed test bundles, including new

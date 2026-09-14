@@ -8,10 +8,11 @@ import { sseData } from './sse';
 import { SourceValidationError, AnswerSources } from './answer-sources';
 import { retrieveBible } from './bible/context';
 import type { BibleContext } from './bible/types';
+import type { AnswerIntent } from './review-policy';
 
 export async function streamAnswer(messages: Message[], apiKey: string, userID: string, signal: AbortSignal,
   onGeneration: (id: string) => Promise<void>, firstName: string | null = null,
-  bibleContext: BibleContext = retrieveBible(messages), relevanceVerified = false, allowFallback = true): Promise<AnswerGeneration> {
+  bibleContext: BibleContext = retrieveBible(messages), intent?: AnswerIntent, allowFallback = true): Promise<AnswerGeneration> {
   let generationID: string | undefined;
   let accounting: InferenceUsage | 'uncertain' = 'uncertain';
   let text = '';
@@ -22,7 +23,7 @@ export async function streamAnswer(messages: Message[], apiKey: string, userID: 
   let stage = 'request';
   let upstreamStatus: number | undefined;
   try {
-    const response = await requestCompletion(messages, apiKey, userID, signal, true, bibleContext, firstName, relevanceVerified, allowFallback);
+    const response = await requestCompletion(messages, apiKey, userID, signal, true, bibleContext, firstName, intent, allowFallback);
     upstreamStatus = response.status;
     if (!response.ok) {
       await response.body?.cancel();

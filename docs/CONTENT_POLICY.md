@@ -10,6 +10,8 @@ Product decision, September 9, 2026: allow as much freedom as possible for Bible
 | Atheistic objections, contradictions, hell, biblical violence, slavery, sexuality, LGBTQ issues, abortion, religious comparisons | Answer fairly in the Christian/Bible context |
 | Profanity, anger, skepticism, or disagreement | Not a reason to refuse |
 | Grief, guilt, relationships, distress without explicit religious keywords | Allow reasonable pastoral support without imposing belief |
+| Everyday guidance on approaching school/work, motivation, stress, or responsibilities | Answer as pastoral support; no religious keywords required |
+| Unclear request that could mean pastoral guidance or an unrelated task | Ask one specific clarifying question, then review the reply in full context |
 | Short follow-ups, greetings, thanks, app-purpose questions | Allow; use the whole conversation for context |
 | General code, recipes, shopping, sports, unrelated news | Briefly redirect to the app's purpose |
 | Unrelated task prefixed with “for my church” or “in Jesus' name” | Still off topic |
@@ -21,6 +23,10 @@ Product decision, September 9, 2026: allow as much freedom as possible for Bible
 Pastoral support must not pressure someone to remain in abuse, force forgiveness or reconciliation, replace treatment with prayer, diagnose/prescribe, or affirm dangerous commands as divine revelation. Abstract theological discussion of suicide remains answerable. Crisis support takes precedence over off-topic filtering and refusal.
 
 ## Enforcement
+
+September 13, 2026: the exact request “Can you please explain how I should approach school today.” is explicitly allowed as everyday pastoral guidance. Completing unrelated homework remains off topic. A vague request such as “Can you help me with school today?” can receive the private reviewer decision `clarify` when the conversation does not already establish what help is needed.
+
+For `clarify`, the answer model receives a dedicated prompt to ask one short question about that situation. It receives no search tools or retrieved passage prompt and skips the normal opening preamble and Scripture/teaching requirements. The question still passes the existing answer moderation, source-validation, buffering, and accounting path; it is sent and saved as an ordinary assistant message. The next user reply is reviewed with the whole conversation, allowing an answer, redirect, refusal, or crisis response as appropriate. No new client field, iOS build, or database migration is needed. Clarification and its review count as one request under existing usage rules; the user's next send is a separate request. These local changes are not a deployment record.
 
 `backend/src/content-policy.ts` owns the policy, upstream JSON schema, runtime parser, and fixed redirect/refusal/crisis text. `answer-prompt.ts` combines it with the existing source-grounding instructions.
 
@@ -39,6 +45,8 @@ Model decisions remain fallible. The reviewer supplies an independent semantic d
 ## Verification
 
 Run `./scripts/dev check` for type checks, mocked Workers tests, and a deployment dry run. Tests cover both transports, replacement of unsafe/off-topic text, preservation of an allowed controversial answer, full-context forwarding, attempted client overrides, malformed envelopes, JSON escapes/fences, source validation, provider content-filter stops, no partial-text leaks, cancellation, and accounting. Mocked decisions test enforcement; they do not test classification accuracy.
+
+Clarification validation, September 13, 2026: `./scripts/dev check` passed type checking, all 397 Workers tests, script checks, and the deployment dry run. Logs: `.dev/logs/backend-typecheck-20260913-171024-29372.log`, `.dev/logs/backend-tests-20260913-171024-29372.log`, and `.dev/logs/backend-bundle-20260913-171050-29372.log`. Both JSON and SSE tests cover clarification delivery, disabled search, fallback, safety replacements, accounting/idempotency, and subsequent allowed/off-topic/unsafe/crisis replies with full context. `node --check backend/scripts/evaluate-content-policy.mjs` passed. The live corpus now includes the exact school question, ambiguous requests in English/Spanish, and clarified needs. Paid model evaluation, iOS tests, and deployment were not run for this change; the next release check is live classification and clarification quality before deploying the Worker.
 
 The synthetic cases in `backend/test/fixtures/content-policy-cases.json` exercise permissive and restrictive decisions, topic drift, forged assistant instructions, Spanish, pastoral distress, and crisis support. To evaluate the actual production prompt and request configuration using the protected local key:
 

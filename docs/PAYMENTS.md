@@ -1,11 +1,14 @@
 # Stripe payments and developer accounting
 
-Updated September 10, 2026. **Live Standard Checkout and Apple Pay are enabled for the U.S. storefront.**
+Updated September 13, 2026. **Live Standard Checkout and Apple Pay are enabled for the U.S. storefront.**
 Luke chose Stripe Checkout with Apple Pay, custom $1–$1,000 amounts, immediate estimated credit followed
 by fee reconciliation, and a **separate Untitled Faith Stripe account**. Do not use Gridbloom’s account,
 credentials, webhook configuration, or payout settings. A real Stripe sandbox payment and partial/full refunds passed; no live payment was collected during verification.
 
-## Current deployment
+## Payment activation snapshot — September 10
+
+See [deployment status](../backend/DEPLOYMENT.md) for subsequent Worker releases and
+[TestFlight history](TESTFLIGHT.md) for current client releases.
 
 - Live Stripe account: `acct_1UE9yV4dOZG5zTuC` (**untitled faith**). Charges and payouts are enabled; USD settlement, Apple Pay, and cards are available and switched on.
 - Live Worker: `untitled-faith-proxy`, version `0f893638-1ca3-4808-bfa7-655ce3e660e8`.
@@ -27,7 +30,17 @@ This follows [Stripe’s iOS digital-goods flow](https://docs.stripe.com/mobile/
 and [Apple’s external-purchase-link rules](https://developer.apple.com/app-store/review/guidelines/#in-app-purchase).
 
 The existing amount keypad and optional 0–3% developer share are preserved. The share comes out of the
-entered total. The last step explains the browser checkout and fee adjustment. The app requests a
+entered total. Current source adds a third **Payment summary** step after the developer-share slider.
+It prominently shows the estimated usage credit, with the total payment, developer share, and estimated
+Stripe fee underneath. **Review payment** opens this summary; **Buy now · $amount** starts checkout.
+Back navigation preserves the amount/share and recalculates the summary after edits. No Checkout
+Session is created just to view the summary. This client change is built locally and is not yet in TestFlight.
+
+The provisional client quote uses the same integer-cent rounding as the backend: 2.9% rounded upward
+to cents plus $0.30. This is an estimate, not a guaranteed fee or answer count. Keep
+`ContributionSelection.estimatedFeeCents` and `parseSelection` in
+`backend/src/payments/configuration.ts` aligned when changing the estimate policy.
+The summary explains that final fees can adjust usage credit. The app requests a
 Checkout Session from the authenticated backend, then opens only an HTTPS `checkout.stripe.com` URL
 in the external browser. Stripe-hosted Checkout displays Apple Pay on supported devices and card entry
 otherwise. No native Apple Pay merchant certificate or card-processing SDK is embedded in the app.
@@ -93,6 +106,120 @@ The owner API remains available for operational accounting: user funding, develo
 balances/reservations, processing fees, refunds, disputes, monthly allocations, reconciliation counts,
 and the latest 30 payments without buyer identities. Stripe deposits combined proceeds into the merchant’s bank account; these ledgers
 separate the allocations but do not initiate bank transfers or automate developer withdrawals.
+
+## CLI money report
+
+Run from the repository root:
+
+```sh
+./scripts/dev money
+./scripts/dev money --json
+```
+
+This reads the **live Untitled Faith account** through the installed Stripe CLI profile
+`untitled-faith` and reads the production D1 ledger through project-local Wrangler. It verifies the
+Stripe account ID, configured D1 database/account, USD settlement, and both live-mode markers. It uses
+existing CLI logins; do not pass server keys or load `.dev.vars`. If Stripe authorization expires,
+renew it with `stripe login --project-name untitled-faith` and select the separate Untitled Faith account.
+
+The report separates:
+
+- Usage funding after fees/refunds, paid usage consumed, and remaining positive user balances.
+- Developer allocations after refunds, before business expenses, taxes, or withdrawals.
+- Confirmed/estimated charge fees, refunds, free usage costs, and monthly ledger changes.
+- Stripe available/pending cash and net payouts, which contain both kinds of funding.
+
+Each run saves a dated `report.md` and `report.json` under ignored `.dev/payments/`, using private
+file permissions. JSON retains exact integer micro-USD; the terminal shows up to six decimal places
+when needed for usage. No buyer names, user IDs, email addresses, card details, or keys are exported.
+The checked-in SELECT statement is `backend/scripts/payment-report.sql`; it captures internally
+consistent ledger totals in one query. Stripe charges and balance transactions are fully paginated,
+and all-time charge IDs, fees, refunds, disputes, allocation deltas, wallets, and cash are checked.
+Monthly allocations use UTC adjustment dates, so an October refund reduces October's allocations
+even when the payment was made in September. Saved reports capture the balance at each run.
+
+Exit **0** means the captured records matched, **2** means a report was saved with review items, and
+**1** means capture failed. Pending events, delayed fees, missing payments, unmatched cash, negative
+balances, and deleted-account remainders require review. Concurrent Stripe/D1 activity can produce a
+temporary difference; rerun after reconciliation. Reads never repair records, deploy, charge a buyer,
+change payout settings, or transfer money.
+
+Use usage funding for usage costs and keep outstanding user credit accounted for after Stripe pays
+out to the bank. Reservations are already included in balances. Developer allocations are not a
+withdrawal allowance: free AI usage, retained refund/dispute fees, other business costs, and any prior
+owner withdrawals still need to be accounted for separately. The report does not read bank balances,
+provider top-ups, or an owner-withdrawal ledger. A full refund can leave zero allocations and a negative
+Stripe cash adjustment for retained fees; that cost is shown separately.
+
+Stripe references checked September 13: [balance transactions](https://docs.stripe.com/api/balance_transactions/object),
+[pagination](https://docs.stripe.com/api/balance_transactions/list), and
+[current balances](https://docs.stripe.com/api/balance/balance_retrieve).
+D1 reads use [Wrangler execute](https://developers.cloudflare.com/d1/wrangler-commands/#execute).
+
+September 13 read-only verification matched one existing $10 live payment: $9.11 usage funding,
+$0.30 developer allocation, and $0.59 confirmed fees. Paid usage consumed was $0.000091, leaving
+$9.109909 in positive user balances; Stripe showed $9.41 pending and $0 available.
+This inspection did not create a payment. The report's 11 regression tests use the real migrations
+in in-memory SQLite and run as part of `./scripts/dev check`.
+The signed client build passed with Apple sign-in and Keychain entitlements verified. No iOS test suite
+or simulator UI automation was run; the new summary still needs on-device visual verification.
+
+## Weekly Google Sheets accounting
+
+Luke chose **weekly** refreshes on September 13. The local workbook contains four managed tabs:
+**Balances**, **Monthly**, **Payments**, and **Stripe activity**. It shows exact micro-dollar usage,
+separate developer allocations, fee/refund adjustments, and a stale-data notice after eight days.
+Bank movements and developer withdrawals remain outside this report.
+
+The updater is `backend/scripts/payment-sheets-sync.mjs`, exposed as `./scripts/dev money-sync`.
+It captures the existing Stripe/D1 report, verifies the configured Google owner and private file
+permissions, replaces the managed cells in one atomic Sheets request, and reads back the important
+totals and timestamp before recording success. Repeated runs replace the same payment rows; they do
+not append or double-count receipts. Complete reports with accounting differences are uploaded with
+their review items. Failed captures keep the previous sheet data and timestamp. Add personal notes
+in another tab, because the four managed tabs are replaced on refresh.
+
+Google access uses the installed `gws` CLI with only `drive.file` and basic identity scopes, stored
+encrypted in the isolated `.dev/google-accounting/auth` directory. The existing default Google CLI
+login is preserved. Luke confirmed his personal Gmail account as the Sheet owner. The existing
+**Hermes Desktop** client rejected that account because it is restricted to the Gridbloom organization.
+A separate **Untitled Faith Accounting** Google project (`untitled-faith-accounting`, number
+`566148879765`) now exists under the personal account, with Drive and Sheets APIs enabled. Its OAuth
+setup is pending the Google API Services User Data Policy acceptance and final authorization.
+Use a non-testing OAuth publishing state for ongoing weekly operation, because Google's external
+testing mode expires refresh tokens after seven days. The isolated `client_secret.json` uses a blank
+optional `project_id`, and the updater
+sets `GOOGLE_APPLICATION_CREDENTIALS=/dev/null` to prevent unrelated Google Cloud quota projects from
+being attached to Workspace requests. Do not alter the default gcloud credentials to fix this.
+
+Once the authorized account and APIs are ready, import the verified workbook:
+
+```sh
+./scripts/dev money-sync --create outputs/faith-accounting-20260913/Untitled-Faith-Accounting.xlsx --account OWNER_EMAIL
+python3 scripts/payment-sheets-schedule.py --install
+```
+
+The importer saves the Google file ID/owner in ignored `.dev/google-accounting/sheet.json` and marks
+the file with an app-private accounting property to recover an interrupted creation without making
+duplicates. Its live Sheets URL is derived from that saved ID. The scheduler refuses installation
+until a successful sync receipt exists. It installs only
+`com.lukefournier.untitled-faith-accounting`, for **Monday at 9 AM local Mac time**, with catch-up after
+sleep or login. Scheduled invocations skip an already completed week. Internet and valid Stripe,
+Cloudflare, and Google logins are required; a failed offline run can be retried with `money-sync`.
+
+Use `python3 scripts/payment-sheets-schedule.py --status` to inspect the job. Logs and the latest
+verified receipt are under `.dev/google-accounting/`; no API secrets or raw Google responses are
+logged by the updater. Stripe's CLI login may need renewal when it expires. The importer currently
+fails without changing cells if a single update exceeds 180 KB; extend its batching before growing
+beyond that boundary. It stops if the Google sheet's sharing is widened, pending operator review.
+
+Initial local verification: four rendered tabs, no workbook formula errors, and five updater tests
+covering money precision, repeated refreshes, removal of obsolete rows, formula injection, weekly
+timing, and Google readback. Native Google creation and scheduler activation are still pending the
+personal-account OAuth setup. The owner choice is resolved.
+`./scripts/dev check` passed the index check, TypeScript, 397 Workers tests, two recovery tests,
+11 report tests, five Sheets tests, and deployment dry run. Logs use suffix `20260913-173949-79536`
+for backend tests and `20260913-174013-79536` for the report/Sheets checks and dry run.
 
 ## Setup and reconfiguration procedure
 

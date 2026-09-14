@@ -62,6 +62,32 @@ final class ScriptureQuoterTests: XCTestCase {
         XCTAssertEqual(resolved.map(\.reference), references.map(\.description))
     }
 
+    func testOverlappingRequestsShareFetchWithoutDiskCache() async throws {
+        let reference = try XCTUnwrap(BibleReference.parse("John 3:16"))
+        let service = SlowService()
+        let quoter = ScriptureQuoter(service: service, cache: nil, fallback: nil)
+        let results = await withTaskGroup(of: [ScriptureCitation].self) { group in
+            for _ in 0..<20 { group.addTask { await quoter.citations(for: [reference]) } }
+            var values: [[ScriptureCitation]] = []
+            for await value in group { values.append(value) }
+            return values
+        }
+        let calls = await service.calls
+        XCTAssertEqual(calls, 1)
+        XCTAssertEqual(results.count, 20)
+        XCTAssertTrue(results.allSatisfy { $0.first?.passage == "Shared response" })
+    }
+
+    private actor SlowService: PassageFetching {
+        private(set) var calls = 0
+        func passages(for references: [BibleReference]) async throws -> QuotedPassages {
+            calls += 1
+            try await Task.sleep(for: .milliseconds(100))
+            return QuotedPassages(translation: "ESV", passages: Dictionary(uniqueKeysWithValues:
+                references.map { ($0, "Shared response") }))
+        }
+    }
+
     func testCacheEvictsLeastRecentlyUsedBeyondVerseLimit() throws {
         let cache = PassageCache(directory: directory, verseLimit: 5)
         let a = try XCTUnwrap(BibleReference.parse("Psalm 1:1-3"))

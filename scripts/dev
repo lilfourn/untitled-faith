@@ -24,6 +24,8 @@ Usage: ./scripts/dev <command>
   build-tests        Compile signed iOS tests without launching a simulator
   test               Run signed iOS tests using a separate build folder
   check              Type-check and test the backend, then check its deployment bundle
+  money [--json]     Report live usage/developer allocations against Stripe (read-only)
+  money-sync        Refresh the private Google accounting sheet
   backend            Start the local backend development server
   verify [app-path]  Verify an app's actual Apple sign-in/Keychain entitlements
   auth-check         Check the built app's backend health and invalid-credential rejection
@@ -220,7 +222,17 @@ case "$ACTION" in
     logged backend-typecheck npm run check
     logged backend-tests npm test
     logged recovery-script-tests node --test scripts/usage-recovery.node.mjs
+    logged payment-report-tests node --test scripts/payment-report.node.mjs
+    logged payment-sheet-tests node --test scripts/payment-sheet-data.node.mjs
     logged backend-bundle npm run deploy:check
+    ;;
+  money)
+    need node
+    exec node "$ROOT/backend/scripts/payment-report.mjs" "$@"
+    ;;
+  money-sync)
+    need node
+    exec node "$ROOT/backend/scripts/payment-sheets-sync.mjs" "$@"
     ;;
   backend)
     need npm

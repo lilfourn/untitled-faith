@@ -7,6 +7,11 @@ struct ContributionSelection: Codable, Equatable, Sendable {
     var developerCents: Int { (amountCents * developerShareBasisPoints + 5_000) / 10_000 }
     var usageBeforeFeesCents: Int { amountCents - developerCents }
 
+    // Matches the provisional quote in backend/src/payments/configuration.ts.
+    // Stripe's actual settlement fee determines the final usage credit.
+    var estimatedFeeCents: Int { (amountCents * 290 + 9_999) / 10_000 + 30 }
+    var estimatedUsageCents: Int { max(0, usageBeforeFeesCents - estimatedFeeCents) }
+
     static func money(_ cents: Int) -> String {
         (Decimal(cents) / 100).formatted(.currency(code: "USD"))
     }

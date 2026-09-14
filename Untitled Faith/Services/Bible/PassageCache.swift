@@ -1,7 +1,7 @@
 import Foundation
 
 /// Device cache for fetched passages, capped by verse count to honor Crossway's 500-verse storage limit.
-/// Entries expire after `maxAge` so refreshed text reaches the app.
+/// Unused entries expire after `maxAge`; recently read text stays available offline.
 final class PassageCache: @unchecked Sendable {
     struct Entry: Codable, Equatable {
         let translation: String
@@ -25,24 +25,55 @@ final class PassageCache: @unchecked Sendable {
         entries = saved.filter { $0.value.used >= cutoff }
     }
 
-    var storedVerses: Int { entries.values.reduce(0) { $0 + $1.verses } }
+    var storedVerses: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return verseTotal
+    }
+
+    private var verseTotal: Int { entries.values.reduce(0) { $0 + $1.verses } }
+
+    /// Only standalone ESV verses are suitable for the home carousel.
+    func randomVerse(excluding reference: String) -> ScriptureCitation? {
+        lock.lock()
+        defer { lock.unlock() }
+        let cutoff = Date().addingTimeInterval(-maxAge)
+        let candidates = entries.filter { key, entry in
+            guard key != reference, entry.translation == "ESV", entry.used >= cutoff,
+                  let parsed = BibleReference.parse(key) else { return false }
+            return parsed.verse != nil && parsed.endVerse == nil && parsed.endChapter == nil
+        }
+        guard let selected = candidates.randomElement() else { return nil }
+        entries[selected.key]?.used = Date()
+        return ScriptureCitation(id: UUID(), reference: selected.key,
+                                 translation: selected.value.translation, passage: selected.value.text)
+    }
 
     func passage(for reference: BibleReference) -> Entry? {
         lock.lock()
         defer { lock.unlock() }
-        guard var entry = entries[reference.description] else { return nil }
+        guard var entry = entries[reference.description], entry.used >= Date().addingTimeInterval(-maxAge) else { return nil }
         entry.used = Date()
         entries[reference.description] = entry
         return entry
     }
 
     func store(_ text: String, translation: String, for reference: BibleReference) {
+        store([reference: text], translation: translation)
+    }
+
+    /// Persist a network batch with one atomic write instead of rewriting the file per verse.
+    func store(_ passages: [BibleReference: String], translation: String) {
         lock.lock()
         defer { lock.unlock() }
-        let verses = max(1, Self.verseCount(in: text))
-        guard verses <= verseLimit else { return }
-        entries[reference.description] = Entry(translation: translation, text: text, verses: verses, used: Date())
-        while storedVerses > verseLimit, let oldest = entries.min(by: { $0.value.used < $1.value.used }) {
+        let now = Date()
+        entries = entries.filter { $0.value.used >= now.addingTimeInterval(-maxAge) }
+        for (reference, text) in passages where !text.isEmpty {
+            let verses = max(1, Self.verseCount(in: text))
+            guard verses <= verseLimit else { continue }
+            entries[reference.description] = Entry(translation: translation, text: text, verses: verses, used: now)
+        }
+        while verseTotal > verseLimit, let oldest = entries.min(by: { $0.value.used < $1.value.used }) {
             entries.removeValue(forKey: oldest.key)
         }
         save()

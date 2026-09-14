@@ -39,11 +39,11 @@ for (const [index, test] of cases.entries()) {
     const review = await reviewRequest(test.messages, process.env.OPENROUTER_API_KEY, `policy-eval-${randomUUID()}`, signal);
     reviewUsage = review.usage;
     actual = review.decision;
-    if (review.decision === 'answer' && !process.argv.includes('--review-only')) {
+    if (['answer', 'clarify'].includes(review.decision) && !process.argv.includes('--review-only')) {
       const bibleContext = await prepareBible(test.messages, { ESV_API_KEY: process.env.ESV_API_KEY,
         PASSAGES_RATE_LIMITER: { limit: async () => ({ success: true }) } }, 'synthetic-policy-eval', signal);
       const response = await requestCompletion(test.messages, process.env.OPENROUTER_API_KEY,
-        `policy-eval-${randomUUID()}`, signal, stream, bibleContext, null, true);
+        `policy-eval-${randomUUID()}`, signal, stream, bibleContext, null, review.decision);
       if (!response.ok) {
         await response.body?.cancel();
         throw new Error(`http_${response.status}`);
@@ -78,7 +78,8 @@ for (const [index, test] of cases.entries()) {
         throw new Error('incomplete_completion');
       }
       const result = moderatedAnswer(content);
-      actual = result.decision;
+      // A clarification is delivered as an ordinary, safety-checked answer.
+      actual = review.decision === 'clarify' && result.decision === 'answer' ? 'clarify' : result.decision;
       if (result.generated) sources.resolve(result.text);
     }
   } catch (failure) {

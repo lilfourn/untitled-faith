@@ -1,3 +1,34 @@
+# Answer transport hardening — September 13, 2026
+
+Local implementation; not deployed or uploaded. The production log query for
+22:43–22:45 UTC found one completed answer stream, request
+`f29cb17a-6d37-4625-826f-188d885d85b8`, status 200 in 10,970 ms on Worker version
+`36955c85-c0bf-4b93-9c19-e50fff0d6203`. This is near the reported 5:44 PM screenshot,
+but logs contain no question text and cannot prove it is that exact request or
+identify the phone's rejection. Individual-event retrieval failed in the Cloudflare
+connector; structured aggregate queries provided these records.
+
+- The server escapes U+0085, U+2028, and U+2029 in all answer SSE events, preserving
+  decoded text while keeping JSON intact for Unicode line readers on older clients.
+- The client frames raw bytes only at CR/LF, validates UTF-8, and limits input to
+  512 KiB before decoding. It cancels the transfer on completion or rejection.
+- Client diagnostics record a validated request UUID and a bounded failure category
+  in OSLog (`com.lukefournier.UntitledFaith`, `AnswerStream`), without chat text.
+  Premature EOF has a distinct connection-ended message. Backend completion logs
+  include cancellation, UTF-16 answer length, and source/quote counts.
+- Moderation, source validation, settlement, and explicit retry behavior are preserved;
+  no automatic paid regeneration or server-side answer storage was added.
+
+`./scripts/dev check` passed TypeScript, 398 Workers tests, script tests, and the
+deployment dry run. The Unicode transport regression checks exact decoded text
+and single settlement. `./scripts/dev build` passed with Apple sign-in and Keychain
+signing verified. Logs: `.dev/logs/backend-tests-20260913-174959-7773.log` and
+`.dev/logs/build-Debug-20260913-174959-7854.log`. `./scripts/dev build-tests` also
+compiled the native regressions successfully (`.dev/logs/ios-test-build-20260913-175105-9608.log`);
+no iOS test execution, simulator automation, or paid inference.
+This is defensive hardening, not a confirmed reproduction of the reported failure.
+Release preparation must preserve concurrent checkout changes and recheck source.
+
 # Reliability implementation — September 10, 2026
 
 The implementation preserves the existing interface and data-retention policy.
