@@ -21,6 +21,24 @@ const finished = (reason = 'stop') => frame({ ...chunk('', reason), usage }) + '
 const response = (text: string) => new Response(text, { headers: { 'Content-Type': 'text/event-stream' } });
 let bearer: string;
 
+it('delivers verified citations inside parentheses over SSE and settles the single generation', async () => {
+  const url = 'https://bibleproject.com/articles/clean-and-unclean/';
+  const text = `Leviticus distinguishes ritual purity from moral wrongdoing ([BibleProject](${url})).`;
+  const value = chunk(allowed(text));
+  upstream.mockResolvedValue(response(frame({ ...value, choices: [{
+    ...value.choices[0], delta: { content: allowed(text), annotations: [{ type: 'url_citation',
+      url_citation: { url, title: 'Clean and unclean', content: 'Ritual purity and moral wrongdoing are distinct.' } }] },
+  }] }) + finished()));
+  const wire = await (await worker.fetch(request(), env)).text();
+  const events = wire.split('\n').filter(line => line.startsWith('data: ')).map(line => JSON.parse(line.slice(6)));
+  expect(events.map(event => event.type)).toEqual(['start', 'delta', 'done']);
+  expect(events[2].answer.text).toBe(text);
+  expect(events[2].answer.sources).toHaveLength(1);
+  expect(upstream).toHaveBeenCalledTimes(1);
+  expect(await env.DB.prepare('SELECT status, cost_micros FROM usage_requests').first())
+    .toEqual({ status: 'settled', cost_micros: 1161 });
+});
+
 it('escapes Unicode line separators on the wire without changing approved text or charging again', async () => {
   const text = 'Patience\u0085grows\u2028with practice\u2029🙏';
   upstream.mockResolvedValue(response(frame(chunk(allowed(text))) + finished()));

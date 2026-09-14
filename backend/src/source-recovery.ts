@@ -1,4 +1,5 @@
 import { MAX_COMMENTARY_QUOTE_WORDS } from './quotation-policy';
+import { replaceSourceLinks } from './source-links';
 import { plainQuotation, quotationMatches, sourceKey, type SourceEvidence } from './source-format';
 
 const quotedLine = /^ {0,3}>[ \t]?(.*)$/;
@@ -69,8 +70,8 @@ export function recoverSources(text: string, evidence: readonly SourceEvidence[]
     removedQuotes++;
   }
   let length = chunks.map(chunk => chunk.text).join('\n').length;
-  const repaired = chunks.map(chunk => chunk.text).join('\n').replace(/\[([^\]\n]+)\]\(([^\s)]+)\)/g,
-    (link, label: string, url: string) => {
+  const repaired = replaceSourceLinks(chunks.map(chunk => chunk.text).join('\n'),
+    ({ text: link, label, url }) => {
       const source = find(url);
       const replacement = source ? `[${label}](${source.url})` : label;
       if (!source || length + replacement.length - link.length > 8000) {

@@ -34,6 +34,16 @@ struct SettingsView: View {
                         ))
                         .tint(AppTheme.accent)
 
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("A note on using Untitled Faith")
+                                .font(.subheadline.weight(.semibold))
+                            Text("Growing as a Christian includes seeking answers through prayer, sanctification (becoming more like Christ), and counsel from other believers. Please don’t let this app replace these essential parts of your Christian life. Take time to pray and ask God to reveal His truth and guide your understanding.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
                         VStack(alignment: .leading, spacing: 20) {
                             Button("Privacy Policy") { legalDocument = .privacy }
                             Button("Terms of Use") { legalDocument = .terms }

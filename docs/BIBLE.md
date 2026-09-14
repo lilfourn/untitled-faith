@@ -106,7 +106,7 @@ These tests were compiled, not executed; no simulator was launched. `git diff --
 The model is instructed to include verified ESV text in the existing Scripture quotation format whenever
 it mentions a passage, close to that passage's first mention. Missing ESV evidence still requires an explicit
 reference and a paraphrase, never invented text; the phone supplies the separate, labeled verse card.
-The first-response prayer preamble remains before the Scripture and explanation.
+The September 14 update moves the prayer reminder into Settings; substantive answers begin with Scripture and explanation.
 
 Validation for the September 13 card/source changes: `./scripts/dev check` passed the Bible index check,
 TypeScript, 385 backend tests, recovery script tests, and the deployment dry run. Backend test log:

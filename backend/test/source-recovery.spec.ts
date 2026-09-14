@@ -139,3 +139,36 @@ it('deduplicates publisher aliases without erasing evidence or multiplying the q
   expect(result.quotes![0]!.sourceID).toBe(result.quotes![1]!.sourceID);
   expect(result.text).not.toContain(`](${alias})`);
 });
+
+it.each(['([Source](URL))', '[Source](URL),[Source](URL)', '([Source](URL)).'])
+('keeps verified inline links separate from surrounding punctuation: %s', layout => {
+  const sources = new AnswerSources();
+  sources.add([annotation(esv, hebrews)]);
+  const text = `Faith involves trust ${layout.replaceAll('URL', esv)}.`;
+  const result = sources.resolve(text);
+  expect(result.text).toBe(text);
+  expect(result.sources).toHaveLength(1);
+});
+
+it('keeps parentheses inside evidence URLs and verifies their quotation', () => {
+  const sources = new AnswerSources();
+  const url = 'https://bibleproject.com/articles/clean-(and-(unclean))/';
+  const quote = 'Ritual purity concerns access to sacred space.';
+  sources.add([annotation(url, quote, 'Purity')]);
+  const text = `See ([Purity](${url})).\n\n> [Commentary] ${quote}\n[Purity](${url})`;
+  const result = sources.resolve(text);
+  expect(result.text).toContain(`([Purity](${url}))`);
+  expect(result.quotes).toHaveLength(1);
+  expect(result.sources![0]!.url).toBe(url);
+});
+
+it('removes an unverified adjacent link without hiding it inside a verified destination', () => {
+  const sources = new AnswerSources();
+  sources.add([annotation(esv, hebrews)]);
+  const bad = 'https://www.gotquestions.org/not-retrieved.html';
+  const text = `See ([Scripture](${esv}),[Unverified](${bad})).`;
+  expect(() => sources.finish(text)).toThrow('sources_unavailable');
+  const result = sources.resolve(text);
+  expect(result.text).toBe(`See ([Scripture](${esv}),Unverified).`);
+  expect(result.sources).toHaveLength(1);
+});

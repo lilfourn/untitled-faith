@@ -7,7 +7,6 @@ import { CONSENT_VERSION, MAX_REQUEST_BYTES } from "../src/contract";
 import { generateAnswer } from "../src/openrouter";
 import { reserveUsage } from "../src/usage";
 import { accountForIdentity } from "../src/accounts";
-import { FIRST_RESPONSE_PREAMBLE } from "../src/conversation-opening";
 
 const testEnv = env as Env;
 const validBody = { consentVersion: CONSENT_VERSION, messages: [{ role: "user", content: "How can I begin reading the Bible?" }] };
@@ -44,24 +43,26 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("answer proxy", () => {
-  it.each([false, true])("selects the opening reminder per conversation for JSON and streaming answers (stream=%s)", async stream => {
+  it.each([false, true])("omits the opening reminder for new and existing conversations in JSON and streaming answers (stream=%s)", async stream => {
     const bearer = await token();
     const question = { role: "user", content: "How can I begin reading the Bible?" };
     const previous = { role: "assistant", content: "Begin with the Gospel of John." };
     const followUp = { role: "user", content: "Why John?" };
+    const oldReminder = "Growing as a Christian includes seeking answers through prayer";
+    const legacyReply = { role: "assistant", content: `${oldReminder}, sanctification, and counsel from other believers. ${previous.content}` };
     const histories = [
-      { messages: [question], first: true },
-      // An unanswered first question remains a first reply on retry.
-      { messages: [question], first: true },
-      { messages: [question, previous, followUp], first: false },
-      // Older threads also skip the reminder even if their first answer predates it.
-      { messages: [question, previous, followUp, previous, followUp], first: false },
-      // A fresh thread on the same account gets its own reminder.
-      { messages: [question], first: true },
+      [question],
+      // Retrying an unanswered first question also omits the reminder.
+      [question],
+      [question, previous, followUp],
+      // Reopened threads can still contain the old reminder in their saved history.
+      [question, legacyReply, followUp],
+      // A fresh thread on the same account has no introductory reminder.
+      [question],
     ];
     const content = JSON.stringify({ decision: "answer", answer: previous.content });
     const usage = { prompt_tokens: 5, completion_tokens: 5, cost: 0.001 };
-    for (const { messages, first } of histories) {
+    for (const messages of histories) {
       upstream.mockResolvedValueOnce(stream
         ? new Response(`data: ${JSON.stringify({ id: crypto.randomUUID(), choices: [{ delta: { content }, finish_reason: "stop" }], usage })}\n\ndata: [DONE]\n\n`)
         : Response.json({ usage, choices: [{ finish_reason: "stop", message: { content } }] }));
@@ -73,8 +74,10 @@ describe("answer proxy", () => {
       const sent = JSON.parse(upstream.mock.calls.at(-1)![1]!.body as string);
       expect(sent.messages.slice(1)).toEqual(messages);
       const prompt = sent.messages[0].content as string;
-      expect(prompt.includes(FIRST_RESPONSE_PREAMBLE)).toBe(first);
-      expect(prompt.includes('Do not repeat or paraphrase the first-response preamble')).toBe(!first);
+      expect(prompt).not.toContain(oldReminder);
+      expect(prompt).not.toContain('first-response preamble');
+      expect(prompt).toContain('Answer the current request without an introductory reminder');
+      expect(prompt).toContain('Do not repeat an old reminder from conversation history.');
     }
   });
 

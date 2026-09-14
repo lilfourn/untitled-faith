@@ -1,10 +1,46 @@
 # Deployment status
 
-Updated September 13, 2026.
+Updated September 14, 2026.
+
+## Citation reliability hotfix — September 14
+
+Worker version **`f2327dc6-bcdf-4740-bb69-6ebabcdd1f55`** serves 100% of production traffic.
+Existing TestFlight clients receive this fix without an app update. Parenthesized citations and
+adjacent links previously failed with `sources_unavailable`: the final validator's greedy URL
+expression included closing prose punctuation or the next link. Repair and validation now share
+a balanced-destination parser, including parentheses within URLs. Unsupported sources and
+unmatched quotations remain subject to the existing verification rules.
+
+Three new punctuation regressions failed before the change. The frozen release passed
+`./scripts/dev check`: Bible index, TypeScript, **404 Workers tests**, recovery/payment script
+checks, and deployment dry run. Tests also cover nested URL parentheses, removal of an adjacent
+unsupported link, and SSE completion with one settled generation. Release snapshot:
+`.dev/release-source-links-20260914`, based on `8d23b9f` plus only `source-links.ts`,
+`source-recovery.ts`, `answer-sources.ts`, and their source-recovery/streaming tests.
+Concurrent prompt, billing, client, and payment-reporting edits were excluded. Fingerprints in
+`.dev/source-links-release-manifest.json` matched before and after publishing.
+
+Deployment used local Wrangler with `--keep-vars --strict`; no migration or secret changes.
+Previous production version: `e5d3fb61-ec5e-4dcf-a569-be6efbac26e1`. Deployment log:
+`.dev/logs/source-links-deploy-20260914.log`; status: `.dev/source-links-deployment-status.json`.
+Full check logs are under the snapshot's `.dev/logs/`.
+
+Two post-deployment live SSE requests for the reported Leviticus clean/unclean question passed
+with `start`, `delta`, `done`, valid quotation offsets, and settled usage. They completed in
+13.4 and 17.1 seconds; temporary operator accounts were removed after settlement. Reports:
+`.dev/leviticus-after-1.json`, `.dev/leviticus-after-2.json`; production tail summary:
+`.dev/leviticus-log-summary.json`. No existing user's allowance was used. No iOS tests or
+simulator automation ran.
+
+The original screenshot's request could not be retrieved: the historical log connector failed
+to decode events, and Wrangler's OAuth token lacked access to the direct historical logs API.
+The exact question succeeded on the pre-fix live retry; the parser defect was reproduced
+deterministically, but is not proven to be the cause of that specific original request.
+These checks do not establish universal response availability.
 
 ## TestFlight 1.0.8 backend — September 13
 
-Worker version **`e5d3fb61-ec5e-4dcf-a569-be6efbac26e1`** serves 100% of production traffic
+Worker version **`e5d3fb61-ec5e-4dcf-a569-be6efbac26e1`** previously served 100% of production traffic
 from source commit `4d83fbf`. It adds context-sensitive clarification for ambiguous requests and
 escapes Unicode line separators in streamed events for compatibility with existing clients.
 The accompanying client adds persistent home-verse reuse, shared passage requests, robust byte-level

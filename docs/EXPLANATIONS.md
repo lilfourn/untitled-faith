@@ -6,21 +6,19 @@ User clarification: context must always govern the use of Scripture. Never cherr
 
 User clarification, September 10, 2026: weave the biblical basis throughout each substantive answer. Start with a verse or short passage, explain it immediately in context, then introduce and explain another passage when needed. Do not leave supporting Scripture in a list at the end. Verified quotations retain the existing quotation-card format; when ESV evidence is missing, use a clearly identified paraphrase with its reference beside the explanation. One passage can be sufficient, and greetings and simple follow-ups remain brief.
 
-## First response in each conversation
+## General note in Settings
 
-User decision, September 13, 2026: start the first model response in a thread with a reminder that Christian growth involves prayer, sanctification, and counsel from other believers. The app must not replace these parts of Christian life. Invite the user to pray for God's guidance before continuing; follow-up responses omit the reminder.
+User decision, September 14, 2026: move the introductory prayer and Christian growth reminder into a general note in user Settings. This replaces the September 13 instruction to add it to the first answer in each conversation.
 
-The [conversation-opening guidance](../backend/src/conversation-opening.ts) supplies this opening paragraph:
+[SettingsView](../Untitled%20Faith/Features/Settings/SettingsView.swift) displays “A note on using Untitled Faith” below Dark mode:
 
-> Growing as a Christian includes seeking answers through prayer, sanctification (becoming more like Christ), and counsel from other believers. Please don't let this app replace these essential parts of your Christian life. Before we continue, take a moment to pray and ask God to reveal His truth and guide your understanding.
+> Growing as a Christian includes seeking answers through prayer, sanctification (becoming more like Christ), and counsel from other believers. Please don’t let this app replace these essential parts of your Christian life. Take time to pray and ask God to reveal His truth and guide your understanding.
 
-The backend selects the first-response instruction when the full request history contains no assistant message. Existing and reopened threads with an assistant reply receive an explicit instruction to omit the preamble, even if the older reply predates this change. Retrying an unanswered first question retains the reminder; a new thread starts fresh. No account-wide flag or client schema change is needed.
+The shared [answer prompt](../backend/src/answer-prompt.ts) instructs the model to answer without an introductory reminder or routine invitation to pray, including on a new conversation's first response. Substantive answers begin with the relevant passage and explanation. Prayer, Christian growth, and the app's limitations remain appropriate topics when the user's question calls for them. Saved conversations keep their original text; the model receives an instruction not to repeat an old reminder from history.
 
-For allowed responses, the preamble comes before Scripture or a greeting. The model then answers in the same response, using the existing passage-and-explanation flow for substantive questions. It must not wait for prayer confirmation, require belief, promise immediate revelation, or portray its answer as God's words. Normal discussion of prayer and Christian growth remains appropriate in follow-ups when the question calls for it. Off-topic, unsafe, and crisis responses retain their existing server-provided messages.
+Both JSON and streaming requests use this guidance, and the reservation estimate includes the same prompt. Mocked integration checks cover new conversations, retries, follow-ups, and history containing the old reminder. Live model adherence requires a live evaluation. The Settings note requires an updated iOS build, and the response change requires a backend deployment; this local change is not a release record.
 
-Both JSON and streaming requests receive the selected instruction, and the reservation estimate includes it. This is generation guidance, not a server-inserted paragraph. Mocked integration checks verify prompt selection and preserved history; live model adherence still needs a requested live evaluation.
-
-Validation: `./scripts/dev check` passed Bible index consistency, TypeScript, all 379 backend tests, both recovery script tests, and the deployment dry run. Logs are under `.dev/logs/` for run `20260913-162907-54970`; backend tests: `backend-tests-20260913-162908-54970.log`. `git diff --check` passed. This change was deployed September 13 as `36955c85-c0bf-4b93-9c19-e50fff0d6203` after the release checks passed again; see [deployment verification](../backend/DEPLOYMENT.md). Paid inference, iOS tests, and simulator UI automation were not run.
+Validation, September 14: `./scripts/dev build` passed and verified Apple sign-in and Keychain entitlements (`.dev/logs/build-Debug-20260914-131526-27187.log`). The first `./scripts/dev check` run hit three failing source-link tests added by concurrent work; after that work supplied its source-link fixes, the full check passed (run `20260914-131639-29585`, backend tests: `.dev/logs/backend-tests-20260914-131640-29585.log`). This includes Bible index consistency, TypeScript, backend and script tests, and the deployment dry run. `git diff --check` passed. No deployment, paid inference, iOS tests, or simulator UI automation was run.
 
 ## Implementation
 

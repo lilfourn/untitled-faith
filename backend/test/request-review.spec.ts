@@ -8,7 +8,6 @@ import { POLICY_RESPONSES } from '../src/content-policy';
 import { parseReview, reviewRequest, REVIEW_MODEL } from '../src/request-review';
 import { reconcileUsage } from '../src/reconcile-usage';
 import { reviewCompletion } from './review-fixture';
-import { FIRST_RESPONSE_PREAMBLE } from '../src/conversation-opening';
 
 const upstream = vi.fn<typeof fetch>();
 let bearer: string;
@@ -61,7 +60,7 @@ describe.each([false, true])('independent request review (stream=%s)', stream =>
     const request = JSON.parse(upstream.mock.calls[1]![1]!.body as string);
     expect(request.messages.slice(1)).toEqual(messages);
     expect(request.messages[0].content).toContain('Ask exactly one brief, warm question');
-    expect(request.messages[0].content).not.toContain(FIRST_RESPONSE_PREAMBLE);
+    expect(request.messages[0].content).not.toContain('Growing as a Christian includes seeking answers through prayer');
     expect(request.tools).toBeUndefined();
     expect(request.max_tool_calls).toBeUndefined();
     expect(await env.DB.prepare('SELECT status, cost_micros, prompt_tokens, completion_tokens FROM usage_requests').first())

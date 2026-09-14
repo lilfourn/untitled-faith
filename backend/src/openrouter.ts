@@ -84,7 +84,7 @@ export function requestCompletion(messages: Message[], apiKey: string, userID: s
   return requestWithRateLimitFallback({
         // The subject must be an opaque app account ID, never an Apple ID or email.
         user: userID,
-        messages: [{ role: "system", content: answerSystemPrompt(firstName, messages, intent) +
+        messages: [{ role: "system", content: answerSystemPrompt(firstName, intent) +
           (intent === 'clarify' ? '' : '\n\n' + biblePrompt(bibleContext)) }, ...messages],
         provider: { data_collection: "deny", require_parameters: true,
           max_price: { prompt: MAX_INPUT_PRICE, completion: MAX_OUTPUT_PRICE, request: 0 } },

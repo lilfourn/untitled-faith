@@ -1,4 +1,5 @@
 import { recoverSources } from './source-recovery';
+import { sourceLinks } from './source-links';
 import { quotationMatches, scriptureTranslation, sourceKey, type SourceEvidence } from './source-format';
 import { APIError, isRecord } from './http';
 import { sourceKind, trustedURL } from './web-search';
@@ -68,8 +69,8 @@ export class AnswerSources {
     const quotedWords = new Map<string, number>();
     const cited = new Set<string>();
     // Links must identify retrieved web evidence or a passage actually supplied from the local corpus.
-    for (const link of text.matchAll(/\[[^\]\n]+\]\((https?:\/\/[^\s]+)\)/g)) {
-      const url = trustedURL(link[1]!);
+    for (const link of sourceLinks(text)) {
+      const url = trustedURL(link.url);
       const source = url ? this.sources.get(sourceKey(url.href)!) : undefined;
       if (!source) throw new SourceValidationError('unverified_link');
       cited.add(source.url);
