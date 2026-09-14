@@ -221,3 +221,28 @@ September 10. No public link is enabled. This approval applies to build 4, not t
 new 1.0.7 upload. Version 1.0.6 (11) was **Ready to Submit** with Personal Testing
 only. No additional external build submission or tester invitation was made during
 this check.
+
+
+## Cached verses and streaming update 1.0.8
+
+On September 13, 2026, **1.0.8 (build 13)** uploaded successfully to App Store Connect and
+was accepted for processing. The release includes persistent home-verse reuse with batched background
+refills, shared passage requests, Unicode-safe answer streaming, the Proverbs launch screen,
+context-sensitive clarification, and a contribution review screen showing estimated usage credit.
+All current source changes, including local payment reporting tools, were committed and pushed.
+
+Source commit: `4d83fbf`, pushed to `origin/main`.
+Archive: `DerivedData/Archives/Untitled Faith-20260913-194301-13.xcarchive`.
+Archive log: `.dev/logs/archive-20260913-194301-61113.log`.
+Upload log: `.dev/logs/testflight-upload-20260913-194405-64744.log`.
+The signed Release archive verified version/build, Apple sign-in, and Keychain identity.
+
+`./scripts/dev check` passed Bible index consistency, TypeScript, **398 Workers tests**, recovery
+and payment-script tests, and deployment dry run. The source remained unchanged through validation,
+archiving, and deployment. Backend version `e5d3fb61-ec5e-4dcf-a569-be6efbac26e1` serves 100% of
+production traffic. Health returned 200 and invalid Apple credentials were rejected with 401.
+No iOS tests, simulator UI automation, paid inference, or live payment was run for this release.
+
+Apple reported “Upload succeeded” and “Uploaded package is processing.” Processing completion and
+phone installation have not been verified. Personal Testing retains automatic build distribution.
+This upload does not submit the new build for external beta review or publish an App Store release.

@@ -2,9 +2,33 @@
 
 Updated September 13, 2026.
 
+## TestFlight 1.0.8 backend — September 13
+
+Worker version **`e5d3fb61-ec5e-4dcf-a569-be6efbac26e1`** serves 100% of production traffic
+from source commit `4d83fbf`. It adds context-sensitive clarification for ambiguous requests and
+escapes Unicode line separators in streamed events for compatibility with existing clients.
+The accompanying client adds persistent home-verse reuse, shared passage requests, robust byte-level
+stream parsing, a Scripture launch screen, and contribution payment review. Local payment reporting
+and spreadsheet-sync tools are included in the source release.
+
+`./scripts/dev check` passed Bible index consistency, TypeScript, **398 Workers tests**, recovery
+and payment-script tests, and the deployment dry run. Source fingerprints stayed unchanged through
+validation and archiving. Deployment used project-local Wrangler with `--keep-vars --strict`;
+no migration, variable, or secret changes were required. Previous production version:
+`36955c85-c0bf-4b93-9c19-e50fff0d6203`.
+
+Wrangler confirmed 100% traffic on the new version. Checks against the URL in the signed archive
+returned health HTTP 200 and invalid Apple credential rejection HTTP 401. No paid inference,
+live payment, iOS test suite, or simulator UI automation was run for this release.
+
+Logs: `.dev/logs/backend-tests-20260913-194301-61114.log`,
+`.dev/logs/backend-bundle-20260913-194327-61114.log`,
+`.dev/logs/release-1.0.8-worker-deploy.log`, and `.dev/logs/release-1.0.8-worker-status.json`.
+See [the TestFlight release record](../docs/TESTFLIGHT.md) for the client upload.
+
 ## TestFlight 1.0.7 backend — September 13
 
-Worker version **`36955c85-c0bf-4b93-9c19-e50fff0d6203`** serves 100% of production traffic,
+Worker version **`36955c85-c0bf-4b93-9c19-e50fff0d6203`** served production traffic before 1.0.8,
 from source commit `cc4ad54dfc10e4fd3a3a0797d20fb354139b8944`. It adds the first-response
 prayer/growth reminder and `funding.totalFundedMicros` for the updated Extra usage display.
 The funded total carries across months and includes settled usage, fee corrections, and refunds.
