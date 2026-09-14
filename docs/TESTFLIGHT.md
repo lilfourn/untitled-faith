@@ -246,3 +246,18 @@ No iOS tests, simulator UI automation, paid inference, or live payment was run f
 Apple reported “Upload succeeded” and “Uploaded package is processing.” Processing completion and
 phone installation have not been verified. Personal Testing retains automatic build distribution.
 This upload does not submit the new build for external beta review or publish an App Store release.
+
+### External beta submission 1.0.8
+
+On September 13, 2026, App Store Connect confirmed processing **Complete** for
+**1.0.8 (build 13)**. The existing uploaded build was submitted for external beta
+review and its final status was verified as **Waiting for Review**. Its build
+details confirm assignment to **Friends and Family** (one external tester) and
+**Personal Testing** (one internal tester).
+
+Saved testing notes cover Apple sign-in and session restoration, cached home
+verses, passage loading, streamed answers and references, clarification, Free and
+Extra usage, and the contribution review screen. **Automatically notify testers**
+was enabled at submission. External access awaits Apple's approval; phone
+installation remains unverified. No new archive, upload, version increment,
+backend deployment, or App Store release was performed for this submission.
