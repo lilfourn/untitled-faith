@@ -315,3 +315,28 @@ Apple reported “Uploaded package is processing,” “Upload succeeded,” and
 Processing completion and phone installation remain unverified. Personal Testing retains automatic
 distribution; this upload does not submit external beta review or publish an App Store release.
 See [backend deployment status](../backend/DEPLOYMENT.md) for the separately requested Worker release.
+
+
+## Scripture mentions and answer reliability update 1.0.11
+
+On September 15, 2026, **1.0.11 (build 16)** uploaded successfully to App Store Connect.
+The release includes `@` verse search and Scripture attachments, direct retry without a confirmation
+popup, a 130-second client idle window and 150-second total limit, and the matching backend's
+120-second inference deadline, provider routing fix, keep-alives, and error accounting improvements.
+
+Source: `4db9d23`; release settings: `af0b381`, pushed to `origin/main`.
+Archive: `DerivedData/Archives/Untitled Faith-20260915-151935-16.xcarchive`.
+Archive log: `.dev/logs/archive-20260915-151935-89985.log`.
+Upload log: `.dev/logs/testflight-upload-20260915-152005-90310.log`.
+
+Signed Release archiving passed with the expected version/build, Apple sign-in, and Keychain identity.
+The source checkout stayed unchanged apart from release settings and documentation. The backend
+matched the successful check with **407 Workers tests**, TypeScript, Bible index consistency,
+supporting script tests, and deployment dry run. Production health and invalid Apple credential
+checks passed against the archive's configured URL. No iOS tests, simulator automation, new paid
+inference, or live payments ran for this release. Phone interaction remains unverified.
+
+Apple reported “Uploaded package is processing,” “Upload succeeded,” and `EXPORT SUCCEEDED`.
+Processing completion and device installation remain unverified. Personal Testing retains automatic
+build distribution. This upload does not submit external beta review or publish an App Store release.
+See [backend deployment status](../backend/DEPLOYMENT.md) for the matching Worker deployment.

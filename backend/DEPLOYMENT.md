@@ -2,9 +2,31 @@
 
 Updated September 15, 2026.
 
+## Release 1.0.11 — September 15
+
+Worker version **`f601c366-80b7-4ee8-8ddb-9f03ba22f4e7`** serves 100% of production traffic.
+Source commit `4db9d23` and release settings `af0b381` are pushed to `origin/main`. This release
+includes Scripture mentions in the client, direct retry, longer client/server timeouts, the AI
+Studio route, stream keep-alives, and trailing error-usage settlement. Backend source matches the
+previously checked and deployed longer-answer snapshot. No migrations, variables, or secrets changed.
+
+Deployment used project-local Wrangler with `--keep-vars --strict`, the Luke login, and the existing
+Vendors account. Prior version: `85519d3c-6b5e-478f-8e8d-199bdda672c5`. Wrangler confirmed 100% traffic.
+The signed **1.0.11 (16)** archive's production URL returned health HTTP 200 and rejected invalid
+Apple credentials with HTTP 401. Signing verified Apple sign-in and Keychain identity.
+
+Validation retained the successful `./scripts/dev check`: **407 Workers tests**, TypeScript, Bible
+index, supporting script tests, and deployment dry run. Source fingerprints remained unchanged.
+Signed Release archiving passed. No iOS tests, simulator UI automation, live payments, or additional
+paid inference ran for this release. See [TestFlight](../docs/TESTFLIGHT.md) for upload status.
+
+Logs: `.dev/logs/release-1.0.11-worker-deploy.log`,
+`.dev/logs/release-1.0.11-worker-status.json`, `.dev/logs/release-1.0.11-auth-check.json`,
+and `.dev/logs/archive-20260915-151935-89985.log`.
+
 ## Longer answer window — September 15
 
-Worker version **`85519d3c-6b5e-478f-8e8d-199bdda672c5`** serves 100% of production traffic.
+Worker version **`85519d3c-6b5e-478f-8e8d-199bdda672c5`** previously served 100% of production traffic.
 Review and answer inference now share a 120-second budget instead of 45 seconds, for both SSE
 and JSON. Deployed using the Luke login in the Vendors account with `--keep-vars --strict`.
 No migrations, variables, or secrets changed. Previous version:
