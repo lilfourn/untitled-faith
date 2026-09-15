@@ -95,6 +95,14 @@ final class BibleStore: @unchecked Sendable {
         return try fullText(tokens.joined(separator: " "), limit: limit)
     }
 
+    /// Type-ahead search: completed words are exact; the last word may still be incomplete.
+    func search(typing words: String, limit: Int = 8) throws -> [BibleVerse] {
+        var tokens = words.split { !$0.isLetter && !$0.isNumber }.map { "\"\($0)\"" }
+        guard !tokens.isEmpty else { return [] }
+        if words.last?.isLetter == true || words.last?.isNumber == true { tokens[tokens.count - 1] += "*" }
+        return try fullText(tokens.joined(separator: " "), limit: limit)
+    }
+
     /// Verses containing the exact phrase, best matches first.
     func search(phrase: String, limit: Int = 20) throws -> [BibleVerse] {
         let cleaned = phrase.replacingOccurrences(of: "\"", with: "").trimmingCharacters(in: .whitespacesAndNewlines)

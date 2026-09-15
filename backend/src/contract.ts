@@ -5,6 +5,8 @@ export const CONSENT_VERSION = "2026-09-09-openrouter-fallbacks";
 export const MAX_REQUEST_BYTES = 1024 * 1024;
 export const MAX_CONTEXT_LENGTH = 200_000;
 export const MAX_MESSAGES = 1000;
+// Shared by JSON and SSE; clients allow another 30 seconds for preparation/delivery.
+export const ANSWER_TIMEOUT_MS = 120_000;
 export type Message = { role: "user" | "assistant"; content: string };
 
 export function parseAnswerRequest(value: unknown): Message[] {

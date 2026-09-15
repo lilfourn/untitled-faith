@@ -12,10 +12,11 @@ struct ChatView: View {
     @State private var showingPhotoLoadError = false
     @State private var showingHistory = false
     @State private var followingAnswer = true
-    @FocusState private var composerFocused: Bool
+    @State private var composerFocused = false
+    @State private var composerSelection = NSRange(location: 0, length: 0)
+    @State private var dismissedMention: VerseMentionQuery?
     @State private var sendTask: Task<Void, Never>?
     @State private var confirmingDiscard = false
-    @State private var confirmingRetry = false
 
     private let suggestions = [
         Suggestion(title: "Read the Bible", detail: "how do I begin?", question: "How can I begin reading the Bible?"),
@@ -118,14 +119,15 @@ struct ChatView: View {
                     return store.ensureSaved()
                 })
             }
-            .confirmationDialog("Generate another answer? The earlier attempt may already have used allowance. This starts a new request.", isPresented: $confirmingRetry, titleVisibility: .visible) {
-                Button("Generate another answer") { sendQuestion(retrying: true) }
-            }
             .confirmationDialog("Discard the changes that could not be saved?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
                 Button("Discard unsaved changes", role: .destructive) { store.discardUnsavedChanges() }
             }
             .onChange(of: store.isSending) {
                 if !store.isSending { session.refreshUsage(force: true) }
+            }
+            .onChange(of: store.draftRevision) {
+                composerSelection = NSRange(location: 0, length: 0)
+                dismissedMention = nil
             }
             .alert("Add usage to continue", isPresented: Binding(
                 get: { store.usageLimitMessage != nil },
@@ -172,7 +174,7 @@ struct ChatView: View {
             }
             if store.canRetry {
                 Button("Retry answer", systemImage: "arrow.clockwise") {
-                    Task { if await store.checkRetry() { confirmingRetry = true } }
+                    Task { if await store.checkRetry() { sendQuestion(retrying: true) } }
                 }
                     .accessibilityIdentifier("retry-answer")
             }
@@ -222,8 +224,16 @@ struct ChatView: View {
 
     private var composer: some View {
         VStack(spacing: 12) {
-            if store.conversation.messages.isEmpty {
+            if let mention = activeMention {
+                VerseMentionPicker(query: mention.text, select: { selectVerse($0, for: mention) },
+                                   dismiss: { dismissedMention = mention })
+                    .padding(.horizontal, 16)
+            } else if store.conversation.messages.isEmpty && store.draftScripture.isEmpty && store.draft.isEmpty {
                 suggestionRow
+            }
+            if !store.draftScripture.isEmpty {
+                ScriptureAttachments(citations: store.draftScripture, remove: store.removeScripture)
+                    .padding(.horizontal, 16)
             }
             inputBar
                 .padding(.horizontal, 16)
@@ -250,6 +260,7 @@ struct ChatView: View {
                 ForEach(suggestions) { suggestion in
                     Button {
                         store.draft = suggestion.question
+                        composerSelection = NSRange(location: suggestion.question.utf16.count, length: 0)
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(suggestion.title)
@@ -278,14 +289,25 @@ struct ChatView: View {
         let isActive = store.isSending || store.canSend
         let revision = store.draftRevision
         let draft = Binding(get: { store.draft }, set: { store.updateDraft($0, revision: revision) })
+        let selection = Binding(get: { composerSelection }, set: {
+            if revision == store.draftRevision { composerSelection = $0 }
+        })
+        let focused = Binding(get: { composerFocused }, set: {
+            if revision == store.draftRevision { composerFocused = $0 }
+        })
         return HStack(alignment: .bottom, spacing: 8) {
-            TextField("Ask a question…", text: draft, axis: .vertical)
+            ComposerTextView(text: draft, selection: selection, focused: focused)
                 .id(revision)
-                .focused($composerFocused)
-                .lineLimit(1...6)
-                .padding(.leading, 20)
-                .padding(.vertical, 15)
-                .accessibilityIdentifier("question-input")
+                .overlay(alignment: .topLeading) {
+                    if store.draft.isEmpty {
+                        Text("Ask a question or @ a verse…")
+                            .foregroundStyle(.tertiary)
+                            .padding(.leading, 20).padding(.top, 15)
+                            .lineLimit(1)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
             Button {
                 if store.isSending {
                     sendTask?.cancel()
@@ -313,11 +335,38 @@ struct ChatView: View {
     }
 
     private func sendQuestion(retrying: Bool = false) {
+        if !retrying, let mention = activeMention {
+            guard let bible = BibleStore.bundled,
+                  let citation = VerseSearch(bible: bible).exactResult(for: mention.text) else {
+                store.errorMessage = "Choose a verse from the search results before sending."
+                return
+            }
+            guard selectVerse(citation, for: mention) else { return }
+        }
         guard let task = store.startSend(animate: !reduceMotion && !UIAccessibility.isVoiceOverRunning,
                                         retrying: retrying) else { return }
         followingAnswer = true
         composerFocused = false
         sendTask = task
+    }
+
+    private var activeMention: VerseMentionQuery? {
+        guard composerFocused,
+              let mention = VerseMentionQuery.active(in: store.draft, selection: composerSelection),
+              mention != dismissedMention else { return nil }
+        return mention
+    }
+
+    @discardableResult
+    private func selectVerse(_ citation: ScriptureCitation, for mention: VerseMentionQuery) -> Bool {
+        guard activeMention == mention,
+              let insertion = mention.inserting(citation.reference, in: store.draft),
+              store.attachScripture(citation, revision: store.draftRevision) else { return false }
+        store.updateDraft(insertion.text, revision: store.draftRevision)
+        composerSelection = insertion.selection
+        dismissedMention = nil
+        composerFocused = true
+        return true
     }
 }
 

@@ -13,6 +13,7 @@ final class ChatStore {
     private(set) var revealProgress: Double?
     private(set) var draftRevision = UUID()
     var draft = ""
+    private(set) var draftScripture: [ScriptureCitation] = []
     var errorMessage: String?
     var usageLimitMessage: String?
     var storageError: String?
@@ -33,7 +34,7 @@ final class ChatStore {
     }
 
     var canSend: Bool {
-        !isSending && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !isSending && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draftScripture.isEmpty)
     }
 
     var canRetry: Bool {
@@ -64,6 +65,22 @@ final class ChatStore {
         draft = text
     }
 
+    @discardableResult
+    func attachScripture(_ citation: ScriptureCitation, revision: UUID) -> Bool {
+        guard revision == draftRevision, !citation.passage.isEmpty else { return false }
+        if draftScripture.contains(where: { $0.reference == citation.reference && $0.translation == citation.translation }) { return true }
+        guard draftScripture.count < 6 else {
+            errorMessage = "You can attach up to six passages to a question. Remove one to add another."
+            return false
+        }
+        draftScripture.append(citation)
+        return true
+    }
+
+    func removeScripture(_ id: UUID) {
+        draftScripture.removeAll { $0.id == id }
+    }
+
     func send(animate: Bool = true) async {
         guard !Task.isCancelled, let task = startSend(animate: animate) else { return }
         await withTaskCancellationHandler {
@@ -78,13 +95,27 @@ final class ChatStore {
         guard retrying ? canRetry : canSend else { return nil }
         usageLimitMessage = nil
         var next = conversation
-        if retrying, case .question(_, let question)? = next.messages.last {
+        if retrying, case .question(_, let question, let scripture)? = next.messages.last {
             // An explicit retry is a new attempt, without duplicating the displayed question.
             // Keep this ID stable for the entire attempt so transport cannot double-submit it.
-            next.messages[next.messages.count - 1] = .question(id: UUID(), text: question)
+            next.messages[next.messages.count - 1] = .question(id: UUID(), text: question, scripture: scripture)
         } else {
             let question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-            next.messages.append(.question(id: UUID(), text: question))
+            var scripture = draftScripture
+            for reference in VerseMentionQuery.references(in: question) {
+                if scripture.contains(where: { $0.reference == reference.description }) { continue }
+                guard let bible = BibleStore.bundled,
+                      let citation = VerseSearch(bible: bible).exactResult(for: reference.description) else {
+                    errorMessage = "Couldn’t attach \(reference.description). Check the reference before sending."
+                    return nil
+                }
+                scripture.append(citation)
+            }
+            guard scripture.count <= 6 else {
+                errorMessage = "You can attach up to six passages to a question. Remove one to continue."
+                return nil
+            }
+            next.messages.append(.question(id: UUID(), text: question, scripture: scripture.isEmpty ? nil : scripture))
         }
         next.updatedAt = Date()
         do {
@@ -99,6 +130,7 @@ final class ChatStore {
         hasUnsavedChanges = false
         if !retrying {
             draft = ""
+            draftScripture = []
             draftRevision = UUID()
         }
         errorMessage = nil
@@ -169,6 +201,7 @@ final class ChatStore {
         conversation = Conversation()
         savedConversation = nil
         draft = ""
+        draftScripture = []
         draftRevision = UUID()
         errorMessage = nil
         usageLimitMessage = nil
@@ -180,6 +213,7 @@ final class ChatStore {
             conversation = try storage.load(id)
             savedConversation = conversation
             draft = ""
+            draftScripture = []
             draftRevision = UUID()
             errorMessage = nil
             usageLimitMessage = nil

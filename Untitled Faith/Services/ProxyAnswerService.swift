@@ -2,14 +2,18 @@ import Foundation
 
 struct ProxyAnswerService: AnswerService {
     static let consentVersion = "2026-09-09-openrouter-fallbacks"
+    // Each received chunk resets the idle timer. Allow the backend's two-minute
+    // answer budget plus passage lookup and delivery, with a finite total limit.
+    static let answerIdleTimeout: TimeInterval = 130
+    static let answerTotalTimeout: TimeInterval = 150
     let endpoint: URL
     let accessToken: @MainActor () async throws -> String
     var session: URLSession = makeSession()
 
     static func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 55
-        configuration.timeoutIntervalForResource = 60
+        configuration.timeoutIntervalForRequest = answerIdleTimeout
+        configuration.timeoutIntervalForResource = answerTotalTimeout
         configuration.urlCache = nil
         configuration.httpCookieStorage = nil
         return URLSession(configuration: configuration, delegate: RejectRedirects(), delegateQueue: nil)
@@ -87,6 +91,7 @@ struct ProxyAnswerService: AnswerService {
         guard !token.isEmpty else { throw AnswerServiceError.signInRequired }
         let context = try Self.context(from: messages)
         var request = URLRequest(url: endpoint)
+        request.timeoutInterval = Self.answerIdleTimeout
         request.httpMethod = "POST"
         request.setValue(messages.last?.id.uuidString, forHTTPHeaderField: "Idempotency-Key")
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -101,12 +106,12 @@ struct ProxyAnswerService: AnswerService {
 
     // Send every displayed message in order. Never silently discard older context.
     static func context(from messages: [ChatMessage]) throws -> [WireMessage] {
-        guard case .question(_, let latest)? = messages.last else { throw AnswerServiceError.invalidResponse }
-        guard latest.utf16.count <= 8000 else { throw AnswerServiceError.questionTooLong }
+        guard let latest = messages.last, case .question = latest else { throw AnswerServiceError.invalidResponse }
+        guard latest.promptText.utf16.count <= 8000 else { throw AnswerServiceError.questionTooLong }
         guard messages.count <= 1000 else { throw AnswerServiceError.conversationTooLong }
         let context = messages.map { message -> WireMessage in
             switch message {
-            case .question(_, let text): return WireMessage(role: "user", content: text)
+            case .question: return WireMessage(role: "user", content: message.promptText)
             case .answer(_, let answer): return WireMessage(role: "assistant", content: answer.text)
             }
         }

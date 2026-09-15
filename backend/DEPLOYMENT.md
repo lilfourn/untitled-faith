@@ -2,9 +2,61 @@
 
 Updated September 15, 2026.
 
+## Longer answer window — September 15
+
+Worker version **`85519d3c-6b5e-478f-8e8d-199bdda672c5`** serves 100% of production traffic.
+Review and answer inference now share a 120-second budget instead of 45 seconds, for both SSE
+and JSON. Deployed using the Luke login in the Vendors account with `--keep-vars --strict`.
+No migrations, variables, or secrets changed. Previous version:
+`31854a62-0817-4649-84a8-3024b3eadc89`.
+
+The client source now allows 130 seconds without incoming data and 150 seconds total; incoming
+data resets the idle timer. Retry answer checks the previous attempt and retries directly without
+the confirmation popup. These client changes require the next app release; existing installed
+versions retain their prior total timeout and retry UI. The signed Debug build passed with Apple
+sign-in and Keychain identity verified. No iOS tests or simulator automation ran.
+
+`./scripts/dev check` passed all **407 Workers tests**, type checks, Bible index, supporting script
+tests, and deployment dry run. Post-deployment health returned HTTP 200 and Wrangler confirmed
+100% traffic. Source fingerprints stayed unchanged: `.dev/longer-answer-source.json`.
+Logs: `.dev/logs/longer-answer-check.log`, `.dev/logs/direct-retry-build.log`,
+`.dev/logs/longer-answer-deploy.log`. Deployment status: `.dev/longer-answer-deployment.json`.
+
+## Answer reliability hotfix — September 15
+
+Worker version **`31854a62-0817-4649-84a8-3024b3eadc89`** previously served 100% of production traffic.
+Deployed with the Luke login into the existing Vendors account using `--keep-vars --strict`.
+Previous version: `ca9acb36-c8f2-45e6-aae2-116a2b2ac8ee`. No migrations, secrets, or variables changed.
+
+The signed-in Cloudflare dashboard showed a successful answer at 14:11:55 CDT (15,782 ms), followed
+by an HTTP-200 upstream stream failure at 14:13:50 (14,014 ms; request
+`7f437fe2-179a-43fa-b98b-ec19caf14fb0`). A production reproduction of “What does it mean to have
+faith?” also failed inside the stream. A direct provider reproduction returned an in-stream 429
+after paid server-tool work, followed by usage. OpenRouter reported degraded Vertex endpoints.
+The historical API connector failed and Wrangler's token received 403; the dashboard provided
+the historical evidence. These records do not conclusively explain the original phone timeout:
+the earlier answer completed on the server, while the later retry failed upstream.
+
+Answer routing now keeps Gemini 3.8 Flash on Google AI Studio, excluding Vertex. Existing HTTP-429
+model fallback and privacy restrictions remain. The stream parser preserves in-stream 429 status,
+collects trailing usage for up to two seconds, and never retries a partially billed generation.
+Ten-second SSE comments keep idle client connections active. Logs add safe completion/error metadata.
+
+`./scripts/dev check` passed TypeScript, **407 Workers tests**, Bible index consistency, supporting
+script tests, and deployment dry run. Production checks of the exact question passed twice in
+**17.2 and 8.3 seconds**, with verified citations and settled usage. Both temporary operator accounts
+were removed after settlement. No iOS tests or simulator automation ran. Concurrent client edits
+were preserved and are outside this backend deployment.
+
+Source fingerprints remained unchanged through publishing: `.dev/faith-timeout-source.json`.
+Reports: `.dev/faith-timeout-after-1.json`, `.dev/faith-timeout-after-2.json`,
+`.dev/faith-timeout-log-summary.json`, `.dev/faith-timeout-deployment.json`.
+Logs: `.dev/logs/faith-timeout-check.log`, `.dev/logs/faith-timeout-deploy.log`.
+Routing reference: [OpenRouter provider selection](https://openrouter.ai/docs/guides/routing/provider-selection).
+
 ## Payment info release 1.0.10 — September 15
 
-Worker version **`ca9acb36-c8f2-45e6-aae2-116a2b2ac8ee`** serves 100% of production traffic.
+Worker version **`ca9acb36-c8f2-45e6-aae2-116a2b2ac8ee`** previously served 100% of production traffic.
 The release was deployed using **`luke.fournier@gridbloom.app`**. Luke confirmed that production
 remains in the existing Vendors account (`c0f96de71bdc54889c1ad27ccc90dfc0`), with its existing
 Worker, D1 database, and `https://untitled-faith-proxy.vendors-c0f.workers.dev` URL. The separate

@@ -140,6 +140,50 @@ it('settles review cost when answer inference is rejected', async () => {
   expect((await env.DB.prepare('SELECT status FROM usage_requests').first())?.status).toBe('settled');
 });
 
+it('reports an in-stream 429 and settles trailing usage without replaying paid work', async () => {
+  upstream.mockResolvedValue(response(frame(chunk('Partial private answer')) +
+    frame({ error: { code: 429, message: 'private provider failure' }, choices: [] }) +
+    frame({ ...chunk('ignored text', 'tool_calls'), usage })));
+  const wire = await (await worker.fetch(request(), env)).text();
+  expect(wire).toContain('"error":{"code":"answer_unavailable","status":429}');
+  expect(wire).not.toMatch(/private|ignored|"type":"delta"|"type":"done"/);
+  expect(upstream).toHaveBeenCalledOnce();
+  expect(await env.DB.prepare('SELECT status, cost_micros FROM usage_requests').first())
+    .toEqual({ status: 'settled', cost_micros: 1161 });
+});
+
+it('bounds the accounting drain when an errored provider keeps its stream open', async () => {
+  const cancel = vi.fn();
+  upstream.mockResolvedValue(new Response(new ReadableStream({ start(controller) {
+    controller.enqueue(encoder.encode(frame({ id: 'private-generation', error: { code: 429 } })));
+  }, cancel })));
+  const wire = await (await worker.fetch(request(), env)).text();
+  expect(wire).toContain('"status":429');
+  expect(cancel).toHaveBeenCalledOnce();
+  expect(upstream).toHaveBeenCalledOnce();
+  expect((await env.DB.prepare('SELECT status FROM usage_requests').first())?.status).toBe('uncertain');
+});
+
+it('sends keep-alive comments while withholding text and clears the timer on completion', async () => {
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+  try {
+    let source!: ReadableStreamDefaultController<Uint8Array>;
+    upstream.mockResolvedValue(new Response(new ReadableStream<Uint8Array>({ start(c) { source = c; } })));
+    const result = await worker.fetch(request(), env);
+    const reader = result.body!.getReader();
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain('"type":"start"');
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(new TextDecoder().decode((await reader.read()).value)).toBe(': keep-alive\n\n');
+    await vi.waitFor(() => expect(upstream).toHaveBeenCalledOnce());
+    source.enqueue(encoder.encode(frame(chunk(allowed('Faith means trust.'))) + finished()));
+    source.close();
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain('"type":"delta"');
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain('"type":"done"');
+    expect((await reader.read()).done).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally { vi.useRealTimers(); }
+});
+
 it('cancels an upstream read on client disconnect and holds uncertain usage for reconciliation', async () => {
   let source!: ReadableStreamDefaultController<Uint8Array>;
   const cancel = vi.fn();

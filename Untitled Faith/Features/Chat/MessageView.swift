@@ -5,13 +5,15 @@ struct MessageView: View {
 
     var body: some View {
         switch message {
-        case .question(_, let text):
+        case .question(_, let text, let scripture):
             HStack {
                 Spacer(minLength: 32)
-                Text(text)
+                VStack(alignment: .leading, spacing: 8) {
+                    if !text.isEmpty { Text(text).textSelection(.enabled) }
+                    if let scripture, !scripture.isEmpty { ScriptureAttachments(citations: scripture) }
+                }
                     .padding(16)
                     .background(AppTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 18))
-                    .textSelection(.enabled)
             }
         case .answer(_, let answer):
             VStack(alignment: .leading, spacing: 16) {

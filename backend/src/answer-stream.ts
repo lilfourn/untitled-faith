@@ -1,5 +1,5 @@
 import { reviewedAnswer } from './request-review';
-import type { Message } from './contract';
+import { ANSWER_TIMEOUT_MS, type Message } from './contract';
 import { APIError } from './http';
 import { InferenceError } from './openrouter';
 import { streamAnswer } from './openrouter-stream';
@@ -11,13 +11,18 @@ export function answerStream(request: Request, env: Env, messages: Message[], us
   reservationID: string, requestID: string, ctx?: ExecutionContext, firstName: string | null = null,
   bibleContext?: BibleContext, allowFallback = true): Response {
   const abort = new AbortController();
-  const signal = AbortSignal.any([request.signal, abort.signal, AbortSignal.timeout(45000)]);
+  const signal = AbortSignal.any([request.signal, abort.signal, AbortSignal.timeout(ANSWER_TIMEOUT_MS)]);
   let cancelled = false;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       const send = (value: unknown) => {
         if (!cancelled) controller.enqueue(answerEvent(value));
       };
+      // SSE comments keep idle connections active without exposing unchecked text.
+      heartbeat = setInterval(() => {
+        if (!cancelled) controller.enqueue(new TextEncoder().encode(': keep-alive\n\n'));
+      }, 10000);
       const work = (async () => {
         const started = Date.now();
         let status = 200;
@@ -56,6 +61,7 @@ export function answerStream(request: Request, env: Env, messages: Message[], us
           }
           send({ type: 'error', error: { code: failure.code, status: failure.status }, requestID });
         } finally {
+          clearInterval(heartbeat);
           if (!cancelled) controller.close();
           console.log(JSON.stringify({ event: 'answer_stream_completed', requestID, status, errorCode,
             cancelled, answerLength, sourceCount, quoteCount, durationMS: Date.now() - started }));
@@ -64,7 +70,7 @@ export function answerStream(request: Request, env: Env, messages: Message[], us
       ctx?.waitUntil(work);
       return work;
     },
-    cancel() { cancelled = true; abort.abort(); },
+    cancel() { cancelled = true; clearInterval(heartbeat); abort.abort(); },
   });
   return new Response(body, { headers: {
     'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store, no-transform',

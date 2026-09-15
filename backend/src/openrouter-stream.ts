@@ -22,6 +22,10 @@ export async function streamAnswer(messages: Message[], apiKey: string, userID: 
   let done = false;
   let stage = 'request';
   let upstreamStatus: number | undefined;
+  let upstreamError = false;
+  let upstreamErrorCode: number | undefined;
+  const drain = new AbortController();
+  let drainTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     const response = await requestCompletion(messages, apiKey, userID, signal, true, bibleContext, firstName, intent, allowFallback);
     upstreamStatus = response.status;
@@ -34,7 +38,7 @@ export async function streamAnswer(messages: Message[], apiKey: string, userID: 
     const headerID = response.headers.get('X-Generation-Id');
     if (headerID) { generationID = headerID.slice(0, 255); await onGeneration(generationID); }
     stage = 'stream';
-    for await (const data of sseData(response.body, signal)) {
+    for await (const data of sseData(response.body, AbortSignal.any([signal, drain.signal]))) {
       if (data === '[DONE]') { done = true; break; }
       const value: unknown = JSON.parse(data);
       if (!isRecord(value)) throw new Error('Invalid chunk');
@@ -49,7 +53,17 @@ export async function streamAnswer(messages: Message[], apiKey: string, userID: 
         accounting = { costMicros: cashCostMicros(usage.cost), promptTokens: usage.prompt_tokens,
           completionTokens: usage.completion_tokens, generationID };
       }
-      if (value.error) throw new Error('Upstream error');
+      if (value.error && !upstreamError) {
+        upstreamError = true;
+        upstreamErrorCode = isRecord(value.error) && typeof value.error.code === 'number' ? value.error.code : undefined;
+        // Server tools can fail after paid work, then send usage in the next frame.
+        // Drain briefly for accounting, never publish text or start another generation.
+        drainTimer = setTimeout(() => drain.abort(), 2000);
+      }
+      if (upstreamError) {
+        if (accounting !== 'uncertain') break;
+        continue;
+      }
       const choice = Array.isArray(value.choices) ? value.choices[0] : undefined;
       if (isRecord(choice)) {
         if (isRecord(choice.delta)) sources.add(choice.delta.annotations);
@@ -67,17 +81,23 @@ export async function streamAnswer(messages: Message[], apiKey: string, userID: 
         }
       }
     }
-    if (!done || finish !== 'stop' || !text.trim() || accounting === 'uncertain') throw new Error('Incomplete stream');
+    if (upstreamError || !done || finish !== 'stop' || !text.trim() || accounting === 'uncertain') throw new Error('Incomplete stream');
     stage = 'moderation';
     const result = moderatedAnswer(text);
     stage = 'sources';
     return { usage: accounting, ...(result.generated ? sources.resolve(result.text) : { text: result.text }) };
   } catch (error) {
-    console.log(JSON.stringify({ event: 'inference_failed', stage, upstreamStatus,
+    console.log(JSON.stringify({ event: 'inference_failed', stage, upstreamStatus, upstreamErrorCode,
+      receivedDone: done, receivedUsage: accounting !== 'uncertain', contentLength: text.length,
+      finishReason: ['stop', 'length', 'tool_calls', 'content_filter', 'error'].includes(String(finish)) ? finish : undefined,
       sourceFailure: error instanceof SourceValidationError ? error.reason : undefined,
       validationFailure: error instanceof AnswerValidationError ? error.reason : undefined, generationID,
       errorType: error instanceof Error ? error.name : 'unknown' }));
     if (error instanceof InferenceError) throw error;
+    if (upstreamError && !signal.aborted) throw new InferenceError(upstreamErrorCode === 429 ? 429 : 502,
+      'answer_unavailable', accounting, generationID);
     throw new InferenceError(signal.aborted ? 504 : 502, signal.aborted ? 'answer_timeout' : error instanceof SourceValidationError || error instanceof AnswerValidationError ? error.code : 'answer_unavailable', accounting, generationID);
+  } finally {
+    clearTimeout(drainTimer);
   }
 }

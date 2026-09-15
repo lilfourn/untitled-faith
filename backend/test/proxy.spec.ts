@@ -118,7 +118,7 @@ describe("answer proxy", () => {
     const sent = JSON.parse(options!.body as string);
     expect(sent.model).toBe("google/gemini-3.8-flash");
     expect(sent.models).toBeUndefined();
-    expect(sent.provider).toEqual({ only: ["google-ai-studio", "google-vertex"], data_collection: "deny", require_parameters: true,
+    expect(sent.provider).toEqual({ only: ["google-ai-studio"], data_collection: "deny", require_parameters: true,
       max_price: { prompt: 3, completion: 15, request: 0 } });
     expect(sent.response_format).toMatchObject({ type: "json_schema", json_schema: { strict: true } });
     expect(sent.reasoning).toEqual({ effort: "low", exclude: true });

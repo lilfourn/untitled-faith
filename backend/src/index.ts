@@ -2,7 +2,7 @@ import { reviewedAnswer } from './request-review';
 import { handleReliability } from './reliability-routes';
 import { authenticate } from "./auth";
 import { handleAppleAuth } from "./apple-auth";
-import { CONSENT_VERSION, MAX_REQUEST_BYTES, parseAnswerRequest } from "./contract";
+import { ANSWER_TIMEOUT_MS, CONSENT_VERSION, MAX_REQUEST_BYTES, parseAnswerRequest } from "./contract";
 import { APIError, isRecord, jsonResponse, readJSON } from "./http";
 import { generateAnswer, InferenceError } from "./openrouter";
 import { finishAccountDeletions, requireAccount } from "./accounts";
@@ -79,7 +79,7 @@ export default {
       if (request.headers.get("Accept")?.split(",").some(value => value.trim() === "text/event-stream")) {
         return answerStream(request, env, messages, userID, reservation.id, requestID, ctx, account.first_name, bibleContext, allowFallback);
       }
-      const signal = AbortSignal.any([request.signal, AbortSignal.timeout(45000)]);
+      const signal = AbortSignal.any([request.signal, AbortSignal.timeout(ANSWER_TIMEOUT_MS)]);
       let result;
       try {
         result = await reviewedAnswer(env.DB, reservation.id, messages, env.OPENROUTER_API_KEY, userID, signal,

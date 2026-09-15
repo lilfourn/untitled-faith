@@ -53,7 +53,7 @@ enum AnswerServiceError: LocalizedError {
         case .signInRequired: "Your answer session is unavailable or has expired. Please sign in again."
         case .consentRequired: "This app’s answer request is no longer supported. Check for an app update and try again."
         case .conversationTooLong: "This conversation has reached the size limit. Start a new conversation to continue."
-        case .questionTooLong: "Please shorten your question to 8,000 characters or fewer."
+        case .questionTooLong: "Please shorten your question or remove attached passages to stay within 8,000 characters."
         case .rateLimited: "Too many answer requests right now. Please wait a minute before trying again."
         case .unavailable: "We couldn’t get an answer right now. Please try again later."
         case .timedOut: "The answer took too long. Please try again."

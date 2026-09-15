@@ -4,6 +4,75 @@ September 9, 2026. User decisions: keep conversations on the phone, make them re
 
 The user subsequently removed the “Allow AI answers?” popup. Send now goes directly to the answer service. The Settings switch was also removed at the user’s request on September 11; the app no longer reads the old device preference, so a previously saved off value cannot block sending. The existing `consentVersion` wire field is retained for compatibility with the deployed API; it is not a record of an explicit popup opt-in.
 
+## Verse mentions in the composer
+
+Type `@` in the prompt bar to search by reference (`John 3:16`, `1John4:19`, or a range) or verse
+words (`my shepherd`). The picker shows three compact rows at a time and scrolls through up to
+eight matches. Search runs over the bundled BSB on a background task after a 120 ms typing pause.
+Every result and attachment labels its translation. Selecting a result replaces only the current
+`@` query with the canonical reference and adds a removable attachment. Tap an attachment to read
+its full text. Complete typed or pasted `@` references are also resolved when sending, even after
+the keyboard is dismissed.
+
+Send saves the full selected passage text with the question before starting the answer request.
+`ChatMessage.promptText` appends the labeled passages to that user message in the existing wire
+format. Saved conversations, retries, and subsequent follow-ups retain the exact attached text.
+The question bubble keeps attachments compact and opens their full text on tap. Older saved
+questions decode without attachments. No server API change or separate file upload is needed.
+
+Up to six passages can accompany a question; their complete text counts toward the existing
+8,000-character message limit. A failed save or validation preserves the draft and selected passages.
+Search and attachment selection make no network requests. The current attachment text is BSB;
+the existing answer-generation ESV retrieval and quotation rules remain in effect.
+
+Validation: the signed app and test targets compiled with `./scripts/dev build-tests`
+(`.dev/logs/ios-test-build-20260915-142415-57539.log`), and the built app's Apple sign-in and
+Keychain entitlements passed verification. Seven new regression tests cover caret replacement,
+search, typed references, the actual request body, older saved questions, retry persistence, and
+attachment removal/size limits. The tests were compiled, not executed; no simulator UI automation,
+paid inference, or deployment was performed for this feature. On-device interaction remains unverified.
+
+## Answer waiting and retry
+
+September 15: review and answer inference share a 120-second server budget in both JSON and SSE.
+The client has a 130-second idle timeout and a 150-second total request limit, allowing time for
+passage preparation and delivery. The idle timer resets whenever data arrives, including the
+server’s ten-second SSE comments ([Apple URLSession behavior](https://developer.apple.com/documentation/foundation/urlsessionconfiguration/timeoutintervalforrequest)).
+The total limit stays fixed so a stalled request cannot run indefinitely. Existing installed
+clients retain their old 60-second total limit until they receive the updated app.
+
+**Retry answer** checks whether the previous attempt is still running, then immediately starts a
+new attempt for the same saved question and attachments. It no longer shows a confirmation dialog.
+The running-request check and send guard still prevent overlapping attempts. Status-check failures
+stay inline; a retry is never started automatically after an error.
+
+### Latency profile
+
+Two September 15 runs of “What does it mean to have faith?” through the actual backend adapters
+and live providers completed with validated answers in 8.30 and 8.57 seconds. These local profiles
+exclude Cloudflare authentication/accounting and the phone's network/rendering time.
+
+| Stage | First run | Second run |
+| --- | ---: | ---: |
+| Bible preparation | 0.37 s | 0.40 s |
+| Independent review | 0.67 s | 0.72 s |
+| Answer generation/search/validation | 7.27 s | 7.45 s |
+| First answer content, measured from answer-call start | 4.35 s | 4.51 s |
+
+The answer's system message is 39,966 characters: 32,715 of instructions and 7,249 of Bible
+context/framing, plus the separator. Prompt usage was 27,504–27,921 tokens across server-tool
+work; this is aggregate usage, not the size of a single initial prompt. The prompt requires
+outside teaching sources for substantive questions, so the provider must select a search,
+retrieve results, then synthesize an answer ([OpenRouter server-tool flow](https://openrouter.ai/docs/guides/features/server-tools/web-search)).
+226–345 completion tokens were reasoning tokens despite low reasoning effort. Local source checks
+finished about 8–12 ms after the final usage frame, so they were not the main computational delay.
+
+The client waits for the validated full answer before displaying it, then reveals it over up to
+four seconds. These are deliberate existing presentation/source rules; the timeout/retry change
+does not alter them. Prompt consolidation and reducing the reveal duration are concrete future
+optimization candidates. Two samples do not establish typical or worst-case latency.
+Reports: `.dev/answer-latency-1.json`, `.dev/answer-latency-2.json`.
+
 ## Storage and context
 
 When a send is rejected because the monthly free allowance is exhausted, the shared free pool is
@@ -25,7 +94,7 @@ Every send constructs the full ordered `user`/`assistant` message array from the
 1. iOS posts to `/v1/answers` with its app bearer token, current consent version, stable `Idempotency-Key`, and `Accept: text/event-stream`.
 2. The Worker validates the complete context and reserves usage with the existing accounting rules.
 3. The existing OpenRouter request configuration enables `stream: true`, usage reporting, and a structured topic/safety decision. The provider parser handles comment heartbeats, multiline data, split UTF-8/CRLF, repeated terminal reasons on usage frames, `[DONE]`, and errors inside HTTP 200 streams. It buffers the bounded upstream response until the complete moderation and source checks pass. See [content policy](CONTENT_POLICY.md).
-4. The Worker emits `start` immediately, then one approved `delta` and `done` after validation and settlement. Provider/model fields, moderation decisions, and usage metadata stay server-side:
+4. The Worker emits `start` immediately, SSE keep-alive comments every 10 seconds, then one approved `delta` and `done` after validation and settlement. Comments are ignored by existing clients and stop on completion or cancellation. Provider/model fields, moderation decisions, and usage metadata stay server-side:
 
 ```text
 data: {"type":"start","requestID":"…"}
@@ -110,6 +179,13 @@ and the 128-token decision budget. `model-policy.ts` and `review-policy.ts` own 
 `model-routing.ts` tries the next route only for an HTTP 429 without OpenRouter platform-limit headers.
 It closes the rejected response before continuing and shares the original abort signal/deadline.
 HTTP 200 errors, partial streams, transport failures, 5xx, and moderation/source failures are not retried.
+
+September 15 reliability hotfix: answer requests use Google AI Studio only while the Vertex route is
+degraded. The Gemini model, review routes, consent requirements, and HTTP 429 fallback remain unchanged.
+An error inside an HTTP 200 stream now preserves its numeric status (including 429) and drains for up
+to two seconds to collect trailing usage. It never publishes subsequent content or retries paid work.
+Missing usage remains uncertain for reconciliation. Failure logs include the upstream error code,
+known finish reason, received-usage/DONE flags, and content length without logging answer text.
 
 Both fallback providers are pinned to OpenAI through OpenRouter with data collection denied and
 required parameters enforced. Luna's route caps are $0.40/M input and $1.80/M output to cover its

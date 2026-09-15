@@ -124,6 +124,10 @@ entitlements; `git diff --check` passed. No deployment, paid inference, or simul
 
 - **Keyword and phrase search** use the SQLite FTS5 index in the bundled database: `BibleStore.search(words:)`
   requires every word; `search(phrase:)` matches the exact phrase. Both rank by BM25 and run offline.
+- **Composer `@` search** uses `search(typing:)` to match completed words and the final word's prefix.
+  `VerseSearch` also resolves book prefixes, chapters, individual verses, and ranges; invalid endpoints
+  cannot produce a mislabeled partial passage. Selected BSB passages accompany the user's prompt in full.
+  See [composer mentions](CHAT.md#verse-mentions-in-the-composer).
 - **Semantic search** uses `VerseEmbeddingIndex`, built on the device from Apple's sentence embeddings
   (`NLEmbedding`), 512 dimensions per verse stored as half floats (about 32 MB for the whole Bible). The index file
   is keyed by the embedding revision so OS model updates rebuild it. Cosine search over all verses takes a few
