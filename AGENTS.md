@@ -9,4 +9,5 @@
 - `./scripts/dev check` runs backend type checks, Workers tests, and a deployment dry run. It does not deploy or perform paid inference.
 - Use `./scripts/dev doctor` for tool/dependency diagnostics. Logs are under `.dev/logs`.
 - Server secrets belong in protected, ignored `.dev.vars` or Cloudflare secrets. Never print them, embed them in Swift/configuration, or rotate them incidentally.
+- Use `luke.fournier@gridbloom.app` for Cloudflare sign-in. This login has access to multiple accounts; verify the deployment target against `backend/wrangler.jsonc` and `backend/DEPLOYMENT.md`.
 - Coordinate changes to shared authentication, billing/account storage, and deployment files. See `APPLE_SIGNIN.md` and `backend/DEPLOYMENT.md` for setup and deployment state; verify current code before relying on older results.

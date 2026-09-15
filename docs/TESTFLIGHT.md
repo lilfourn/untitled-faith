@@ -288,3 +288,30 @@ Apple reported “Uploaded package is processing,” “Upload succeeded,” and
 Processing completion and phone installation remain unverified. Personal Testing retains
 automatic build distribution. This upload does not submit the new build for external beta review
 or publish an App Store release. Existing local payment-reporting edits remain uncommitted.
+
+## Gridbloom payment info update 1.0.10
+
+On September 15, 2026, **1.0.10 (build 15)** uploaded successfully to App Store Connect.
+Settings → **Payment info** identifies Gridbloom as the LLC behind Untitled Faith and explains
+that payments are invoiced under Gridbloom, which appears on payment receipts. The page is
+available regardless of storefront or payment availability. The source release also commits
+the existing dedicated service-account support for the local weekly accounting tools.
+
+Source commit: `b72fa9c`; release settings: `4fdc992`, pushed to `origin/main`.
+Archive: `DerivedData/Archives/Untitled Faith-20260915-132849-15.xcarchive`.
+Archive log: `.dev/logs/archive-20260915-132849-27795.log`.
+Upload log: `.dev/logs/testflight-upload-20260915-132926-28339.log`.
+Xcode 27.0 first-run setup completed after license acceptance. Signed Release archiving verified
+version/build, Apple sign-in, and Keychain identity. The source tree matched the release commit
+before upload. Checks against the archive's production URL returned health HTTP 200 and invalid
+Apple credential rejection HTTP 401.
+
+`./scripts/dev check` passed the Bible index, TypeScript, **404 Workers tests**, two recovery tests,
+11 payment-report tests, five Sheets tests, and the deployment dry run. Logs use suffixes
+`20260915-132702-26705` and `20260915-132727-26705`. No iOS tests, simulator UI automation,
+paid inference, or live payments ran for this release. On-device appearance remains unverified.
+
+Apple reported “Uploaded package is processing,” “Upload succeeded,” and `EXPORT SUCCEEDED`.
+Processing completion and phone installation remain unverified. Personal Testing retains automatic
+distribution; this upload does not submit external beta review or publish an App Store release.
+See [backend deployment status](../backend/DEPLOYMENT.md) for the separately requested Worker release.
