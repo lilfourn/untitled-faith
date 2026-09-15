@@ -1,10 +1,37 @@
 # Deployment status
 
-Updated September 14, 2026.
+Updated September 15, 2026.
+
+## Payment info release 1.0.10 — September 15
+
+Worker version **`ca9acb36-c8f2-45e6-aae2-116a2b2ac8ee`** serves 100% of production traffic.
+The release was deployed using **`luke.fournier@gridbloom.app`**. Luke confirmed that production
+remains in the existing Vendors account (`c0f96de71bdc54889c1ad27ccc90dfc0`), with its existing
+Worker, D1 database, and `https://untitled-faith-proxy.vendors-c0f.workers.dev` URL. The separate
+Luke account is not the target for this app. Use the Luke login for future deployments.
+
+Source commit `b72fa9c` and release settings `4fdc992` are included in `b52e09e`, which matched
+the deployed backend source. This republishes the verified backend alongside the iOS Payment info
+page; the server runtime is unchanged from 1.0.9. The accounting-script changes are local tools.
+Deployment used project-local Wrangler 4.130.0 with `--keep-vars --strict`; no migrations,
+variable changes, or secret changes were required. Previous production version:
+`a3e82bd0-f30b-4d3b-ba27-b1c14f475919`.
+
+`./scripts/dev check` passed Bible index consistency, TypeScript, **404 Workers tests**, two
+recovery tests, 11 payment-report tests, five Sheets tests, and the deployment dry run. The backend
+source and configuration remained unchanged through deployment. Wrangler confirmed the Luke login
+as deployment author and 100% traffic on the new version. Post-deployment checks against the signed
+**1.0.10 (15)** archive's production URL returned health HTTP 200 and invalid Apple credential
+rejection HTTP 401. No paid inference, live payments, iOS tests, or simulator UI automation ran.
+
+Logs: `.dev/logs/release-1.0.10-worker-deploy.log`,
+`.dev/logs/release-1.0.10-worker-status.json`, and `.dev/logs/release-1.0.10-auth-check.log`.
+See [the TestFlight record](../docs/TESTFLIGHT.md#gridbloom-payment-info-update-1010) for the
+successful client upload and remaining Apple processing/device-verification status.
 
 ## Settings note update 1.0.9 — September 14
 
-Worker version **`a3e82bd0-f30b-4d3b-ba27-b1c14f475919`** serves 100% of production traffic.
+Worker version **`a3e82bd0-f30b-4d3b-ba27-b1c14f475919`** previously served 100% of production traffic.
 Answers omit the introductory prayer and Christian growth reminder; the 1.0.9 client displays
 that reminder as a general note in Settings. The release retains the citation reliability hotfix.
 Source commit `8859eec` and release settings commit `024aece` were pushed to `origin/main`.
