@@ -31,6 +31,10 @@ def main():
     receipt = json.loads((STATE / 'last-sync.json').read_text())
     if receipt.get('spreadsheetID') != config.get('spreadsheetID') or not receipt.get('syncedAt'):
         raise RuntimeError('A verified Google Sheets sync is required before scheduling.')
+    if not config.get('serviceAccountEmail'):
+        raise RuntimeError('Configure the dedicated sync identity before scheduling; setup OAuth can expire.')
+    if receipt.get('syncAccount') != config['serviceAccountEmail']:
+        raise RuntimeError('Verify a sync with the dedicated identity before scheduling.')
     node = shutil.which('node')
     if not node or not shutil.which('gws') or not shutil.which('stripe'):
         raise RuntimeError('Node, Google Workspace CLI, and Stripe CLI must be installed.')

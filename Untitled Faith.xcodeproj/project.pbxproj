@@ -89,6 +89,7 @@
 		D6092368C8BCCF9DA4CDD5B2 /* AnswerPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2AC7E4F78FAB891A2F7F175 /* AnswerPresentationTests.swift */; };
 		D7B31D14173207F2B3268AFB /* AnswerReveal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 748C2C1BE357B0378F4AB322 /* AnswerReveal.swift */; };
 		DDDCA8DCE571CA40C6F74E57 /* SessionRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB2E8F40BE01EE0FECED374D /* SessionRecoveryTests.swift */; };
+		DEA1DAB58439583EB9EAA942 /* PaymentInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B95F9374B747DF45A31B9739 /* PaymentInfoView.swift */; };
 		E5502A5BDEDD555D3E64C6D4 /* AuthenticationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A6826BC44CE562B0C43418 /* AuthenticationTests.swift */; };
 		E75471EC48DBA83227CE4B29 /* AppleSignInAttempt.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF1CD0F0106DEC54DC1496A /* AppleSignInAttempt.swift */; };
 		F60CA3905DC62E68348F56AB /* VerseEmbeddingIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A5B4DF4BF8B9789121FE33A /* VerseEmbeddingIndex.swift */; };
@@ -181,6 +182,7 @@
 		A533B296B7037816ADCD48B3 /* AuthenticationKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationKeychain.swift; sourceTree = "<group>"; };
 		B110277C45153D7026D7889E /* ProxyAnswerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxyAnswerService.swift; sourceTree = "<group>"; };
 		B340FF672D4BFDB48BF71B8D /* AccountUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountUsageStore.swift; sourceTree = "<group>"; };
+		B95F9374B747DF45A31B9739 /* PaymentInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentInfoView.swift; sourceTree = "<group>"; };
 		BBF446664D42B19C64610C32 /* ConversationHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationHistoryView.swift; sourceTree = "<group>"; };
 		C06F1B7ABF68A565C97201A0 /* ScriptureReferenceDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptureReferenceDetector.swift; sourceTree = "<group>"; };
 		C2F930849D8FF6E1D5BFD006 /* MessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageView.swift; sourceTree = "<group>"; };
@@ -274,6 +276,7 @@
 				55295931F449493B119632F6 /* ExtraUsageView.swift */,
 				EE8F7C9F6BD628CBDE4A778C /* OwnerPaymentsView.swift */,
 				E3EC8B362BABD8B43FBFD0CC /* PaymentEntry.swift */,
+				B95F9374B747DF45A31B9739 /* PaymentInfoView.swift */,
 				3CBB4B318FBD5283ADFAA853 /* ProfilePhotoPicker.swift */,
 				D7D4974727B5957F3E6BCBCA /* SettingsView.swift */,
 				8A4BB9D69D467109B5DCF046 /* UsageSection.swift */,
@@ -652,6 +655,7 @@
 				CA6CE84B897A517EA593BCAC /* PassageFetching.swift in Sources */,
 				D2D080C05F9C8746B3A91729 /* PaymentAPI.swift in Sources */,
 				56FE7D1A5366FD248525BA63 /* PaymentEntry.swift in Sources */,
+				DEA1DAB58439583EB9EAA942 /* PaymentInfoView.swift in Sources */,
 				1DCCAE02EC8D79DF24EE705E /* PendingAccountDeletion.swift in Sources */,
 				F8007613A4C1156BCEB437C5 /* ProfilePhotoPicker.swift in Sources */,
 				49335140092B9B6B40D6A7EF /* ProxyAnswerService.swift in Sources */,

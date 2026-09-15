@@ -45,6 +45,19 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                         VStack(alignment: .leading, spacing: 20) {
+                            NavigationLink {
+                                PaymentInfoView()
+                            } label: {
+                                HStack {
+                                    Text("Payment info")
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.footnote.weight(.semibold))
+                                        .accessibilityHidden(true)
+                                }
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                            }
                             Button("Privacy Policy") { legalDocument = .privacy }
                             Button("Terms of Use") { legalDocument = .terms }
                             Button("Sign out") {

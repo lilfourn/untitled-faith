@@ -21,6 +21,12 @@ Server secrets are in protected `.dev/stripe-live/.dev.vars` and `.dev/stripe-sa
 
 The owner overview is assigned to Luke’s existing production app account by its explicit UUID. The latest TestFlight client, **1.0.6 (11)**, already includes the dynamic payment entry and overview; reopen Settings to refresh availability. No new app archive was needed for activation.
 
+## Payment info
+
+Settings → **Payment info** identifies Gridbloom as the LLC behind Untitled Faith and explains
+that all payments are invoiced under Gridbloom, which appears on payment receipts. This page is
+available regardless of storefront or payment availability.
+
 ## Purchase flow
 
 The signed-in app checks StoreKit’s current storefront and the backend’s payment availability before
@@ -166,7 +172,9 @@ or simulator UI automation was run; the new summary still needs on-device visual
 
 ## Weekly Google Sheets accounting
 
-Luke chose **weekly** refreshes on September 13. The local workbook contains four managed tabs:
+The private [Untitled Faith Accounting sheet](https://docs.google.com/spreadsheets/d/1MILEpIm1FcYeynLgC8Y3zHr35b3FeJqMYU3HPoSrbd0/edit)
+is live in Luke's personal Gmail account. Luke chose **weekly** refreshes on September 13.
+The workbook contains four managed tabs:
 **Balances**, **Monthly**, **Payments**, and **Stripe activity**. It shows exact micro-dollar usage,
 separate developer allocations, fee/refund adjustments, and a stale-data notice after eight days.
 Bank movements and developer withdrawals remain outside this report.
@@ -179,30 +187,39 @@ not append or double-count receipts. Complete reports with accounting difference
 their review items. Failed captures keep the previous sheet data and timestamp. Add personal notes
 in another tab, because the four managed tabs are replaced on refresh.
 
-Google access uses the installed `gws` CLI with only `drive.file` and basic identity scopes, stored
-encrypted in the isolated `.dev/google-accounting/auth` directory. The existing default Google CLI
-login is preserved. Luke confirmed his personal Gmail account as the Sheet owner. The existing
-**Hermes Desktop** client rejected that account because it is restricted to the Gridbloom organization.
-A separate **Untitled Faith Accounting** Google project (`untitled-faith-accounting`, number
-`566148879765`) now exists under the personal account, with Drive and Sheets APIs enabled. Its OAuth
-setup is pending the Google API Services User Data Policy acceptance and final authorization.
-Use a non-testing OAuth publishing state for ongoing weekly operation, because Google's external
-testing mode expires refresh tokens after seven days. The isolated `client_secret.json` uses a blank
-optional `project_id`, and the updater
-sets `GOOGLE_APPLICATION_CREDENTIALS=/dev/null` to prevent unrelated Google Cloud quota projects from
-being attached to Workspace requests. Do not alter the default gcloud credentials to fix this.
+Google access uses the installed `gws` CLI. Luke's personal Gmail authorized initial workbook creation
+with `drive.file` and basic identity scopes, using the separate **Untitled Faith Accounting** project
+(`untitled-faith-accounting`, number `566148879765`). The Google API Services User Data Policy was
+accepted with Luke's explicit approval. The old organization-only Hermes Desktop client was not changed.
 
-Once the authorized account and APIs are ready, import the verified workbook:
+Ongoing updates use `weekly-accounting-sync@untitled-faith-accounting.iam.gserviceaccount.com`, a
+dedicated service account with no project-wide roles or domain delegation. It has editor access to
+this spreadsheet only; Luke retains ownership. There is no public or domain-wide sharing. Its key
+is in ignored `.dev/google-accounting/auth-service/key.json` with mode 0600 and its directory is 0700.
+The updater verifies that the key identity/project match the local configuration and permits only
+the owner and this specific writer in the file's sharing list. No notification email was sent when
+granting the updater access.
+
+This avoids using a seven-day OAuth testing token for weekly updates. The personal OAuth client stays
+in Testing and is needed only for initial creation or owner-level maintenance, not scheduled runs.
+Its encrypted credentials remain isolated in `.dev/google-accounting/auth`; the default Google CLI
+login is preserved. Both CLI modes set `GOOGLE_APPLICATION_CREDENTIALS=/dev/null` to prevent unrelated
+Google Cloud quota projects from being attached to Workspace requests. The bootstrap OAuth client
+also has a blank optional `project_id`. Do not alter the default gcloud credentials to fix this.
+
+Manual refresh and schedule inspection:
 
 ```sh
-./scripts/dev money-sync --create outputs/faith-accounting-20260913/Untitled-Faith-Accounting.xlsx --account OWNER_EMAIL
-python3 scripts/payment-sheets-schedule.py --install
+./scripts/dev money-sync
+python3 scripts/payment-sheets-schedule.py --status
 ```
 
 The importer saves the Google file ID/owner in ignored `.dev/google-accounting/sheet.json` and marks
 the file with an app-private accounting property to recover an interrupted creation without making
-duplicates. Its live Sheets URL is derived from that saved ID. The scheduler refuses installation
-until a successful sync receipt exists. It installs only
+duplicates, plus a non-sensitive file property that the dedicated writer can verify. Initial import
+uses `money-sync --create <verified.xlsx> --account <owner-email>` with the owner's isolated OAuth
+login. Configure the service-account writer and its key before scheduling. The scheduler refuses
+installation until a successful sync receipt from that exact writer exists. It installs only
 `com.lukefournier.untitled-faith-accounting`, for **Monday at 9 AM local Mac time**, with catch-up after
 sleep or login. Scheduled invocations skip an already completed week. Internet and valid Stripe,
 Cloudflare, and Google logins are required; a failed offline run can be retried with `money-sync`.
@@ -211,12 +228,18 @@ Use `python3 scripts/payment-sheets-schedule.py --status` to inspect the job. Lo
 verified receipt are under `.dev/google-accounting/`; no API secrets or raw Google responses are
 logged by the updater. Stripe's CLI login may need renewal when it expires. The importer currently
 fails without changing cells if a single update exceeds 180 KB; extend its batching before growing
-beyond that boundary. It stops if the Google sheet's sharing is widened, pending operator review.
+beyond that boundary. It stops if sharing is widened beyond the owner and dedicated writer, pending
+operator review. Stripe's CLI authorization was documented to expire December 9, 2026; renew that
+login when needed. The spreadsheet displays a notice if no successful update has occurred for eight days.
 
 Initial local verification: four rendered tabs, no workbook formula errors, and five updater tests
 covering money precision, repeated refreshes, removal of obsolete rows, formula injection, weekly
-timing, and Google readback. Native Google creation and scheduler activation are still pending the
-personal-account OAuth setup. The owner choice is resolved.
+timing, and Google readback. Native creation and two service-account refreshes succeeded without
+duplicating the one payment. The last verified capture at `2026-09-14T00:57:19.878Z` matched $9.11 in
+usage funding, $0.30 in developer allocation, $0.59 in confirmed fees, and $9.081593 in remaining user
+credit. The Google API scan found zero formula errors across all four tabs, and native layouts were
+visually inspected. The installed launchd job reported exit 0; its initial invocation correctly
+skipped another refresh because the current weekly snapshot was already complete.
 `./scripts/dev check` passed the index check, TypeScript, 397 Workers tests, two recovery tests,
 11 report tests, five Sheets tests, and deployment dry run. Logs use suffix `20260913-173949-79536`
 for backend tests and `20260913-174013-79536` for the report/Sheets checks and dry run.

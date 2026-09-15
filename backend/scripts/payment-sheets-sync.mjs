@@ -38,6 +38,15 @@ async function google(args) {
     'GOOGLE_WORKSPACE_PROJECT_ID', 'GOOGLE_WORKSPACE_CLI_LOG_FILE']) delete env[key];
   // Prevent gws from attaching an unrelated gcloud ADC quota project. OAuth remains in the isolated config.
   env.GOOGLE_APPLICATION_CREDENTIALS = '/dev/null';
+  const configuration = await jsonFile(configFile);
+  if (configuration?.serviceAccountEmail) {
+    const keyFile = resolve(state, 'auth-service/key.json');
+    const key = await jsonFile(keyFile);
+    if (key?.type !== 'service_account' || key.client_email !== configuration.serviceAccountEmail ||
+        key.project_id !== 'untitled-faith-accounting') throw new Error('Accounting service-account key does not match its configured identity.');
+    env.GOOGLE_WORKSPACE_CLI_CONFIG_DIR = resolve(state, 'auth-service');
+    env.GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE = keyFile;
+  }
   let stdout;
   try { ({ stdout } = await exec('gws', args, { cwd: root, env, encoding: 'utf8', timeout: 60_000, maxBuffer: 32 * 1024 * 1024 })); }
   catch (error) { throw new Error(`Google request failed (CLI exit ${Number.isInteger(error.code) ? error.code : 'unavailable'}). Check the accounting Google login and API access.`); }
@@ -46,13 +55,15 @@ async function google(args) {
   return result;
 }
 
-async function fileDetails(id, account) {
+async function fileDetails(id, account, serviceAccountEmail) {
   if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Invalid spreadsheet ID.');
   const file = await google(['drive', 'files', 'get', '--params', JSON.stringify({ fileId: id,
-    fields: 'id,mimeType,trashed,appProperties,owners(emailAddress),permissions(type,role,emailAddress)' })]);
-  if (file.mimeType !== 'application/vnd.google-apps.spreadsheet' || file.trashed || file.appProperties?.accounting !== marker ||
+    fields: 'id,mimeType,trashed,properties,owners(emailAddress),permissions(type,role,emailAddress)' })]);
+  if (file.mimeType !== 'application/vnd.google-apps.spreadsheet' || file.trashed || file.properties?.accounting !== marker ||
       !file.owners?.some(owner => owner.emailAddress === account)) throw new Error('Spreadsheet ownership or accounting marker mismatch.');
-  if (file.permissions?.some(permission => permission.type !== 'user' || permission.emailAddress !== account)) {
+  if (!Array.isArray(file.permissions) || file.permissions.some(permission => permission.type !== 'user' ||
+      !(permission.emailAddress === account && permission.role === 'owner' ||
+        serviceAccountEmail && permission.emailAddress === serviceAccountEmail && permission.role === 'writer'))) {
     throw new Error('The accounting sheet has additional sharing. Review its access before syncing financial data.');
   }
   return file;
@@ -67,7 +78,7 @@ async function createSheet(workbook, account) {
   if (!id) {
     await readFile(workbook); // Fail before creating a file if the verified workbook is missing.
     const created = await google(['drive', 'files', 'create', '--params', JSON.stringify({ fields: 'id', ignoreDefaultVisibility: true }),
-      '--json', JSON.stringify({ name: SHEET_TITLE, mimeType: 'application/vnd.google-apps.spreadsheet', appProperties: { accounting: marker } }),
+      '--json', JSON.stringify({ name: SHEET_TITLE, mimeType: 'application/vnd.google-apps.spreadsheet', appProperties: { accounting: marker }, properties: { accounting: marker } }),
       '--upload', workbook, '--upload-content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
     id = created.id;
   }
@@ -90,7 +101,7 @@ async function captureReport() {
 
 async function sync(config) {
   if (config.schemaVersion !== 1 || !config.googleAccount) throw new Error('Unexpected Google accounting configuration.');
-  await fileDetails(config.spreadsheetID, config.googleAccount);
+  await fileDetails(config.spreadsheetID, config.googleAccount, config.serviceAccountEmail);
   const report = await captureReport();
   const data = sheetData(report);
   const metadata = await google(['sheets', 'spreadsheets', 'get', '--params', JSON.stringify({
@@ -105,6 +116,7 @@ async function sync(config) {
     valueRenderOption: 'UNFORMATTED_VALUE', dateTimeRenderOption: 'SERIAL_NUMBER' })]);
   verifyReadback(report, readback);
   const receipt = { spreadsheetID: config.spreadsheetID, capturedAt: report.finishedAt, syncedAt: new Date().toISOString(),
+    syncAccount: config.serviceAccountEmail ?? config.googleAccount,
     status: report.status, reviewItems: report.issues.length, payments: report.payments.length };
   await saveJSON(receiptFile, receipt);
   console.log(JSON.stringify({ ...receipt, url: `https://docs.google.com/spreadsheets/d/${config.spreadsheetID}/edit` }));
@@ -156,7 +168,7 @@ export async function main(args) {
     if (!expectedAccount) throw new Error('Create the accounting sheet first with money-sync --create <verified.xlsx> --account <email>.');
     if (config && config.googleAccount !== expectedAccount) throw new Error('Existing accounting sheet belongs to a different configured account.');
     const identity = await google(['drive', 'about', 'get', '--params', '{"fields":"user(emailAddress)"}']);
-    if (identity.user?.emailAddress !== expectedAccount) throw new Error('Google login does not match the configured sheet owner.');
+    if (identity.user?.emailAddress !== (config?.serviceAccountEmail ?? expectedAccount)) throw new Error('Google login does not match the configured accounting identity.');
     if (!config && create) config = await createSheet(resolve(root, args[1]), expectedAccount);
     await sync(config);
   } finally { await rm(lock, { recursive: true }); }
