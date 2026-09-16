@@ -340,3 +340,18 @@ Apple reported “Uploaded package is processing,” “Upload succeeded,” and
 Processing completion and device installation remain unverified. Personal Testing retains automatic
 build distribution. This upload does not submit external beta review or publish an App Store release.
 See [backend deployment status](../backend/DEPLOYMENT.md) for the matching Worker deployment.
+
+### External beta submission 1.0.11
+
+On September 16, 2026, App Store Connect confirmed processing **Complete** for
+**1.0.11 (build 16)**. The existing build was submitted to external beta review;
+the final build status was verified as **Waiting for Review**, assigned to
+**Friends and Family** (one external tester) and **Personal Testing** (one internal tester).
+**Automatically notify testers** was enabled at submission.
+
+Saved testing notes cover `@` verse search and Scripture attachments, streamed answers
+and retry, Apple sign-in and session restoration, home verses and passage loading,
+Free and Extra usage, the usage note, and Gridbloom payment information.
+App Store Connect also reported the internal tester had installed 1.0.11 (16).
+External availability awaits Apple's approval. No new archive, upload, version increment,
+backend deployment, iOS tests, or simulator UI automation was needed for this submission.
